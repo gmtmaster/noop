@@ -120,7 +120,7 @@ struct RootView: View {
 
     @ViewBuilder private var detail: some View {
         switch selection ?? .today {
-        case .today: TodayView()
+        case .today: TodayDashboardView()
         case .intelligence: IntelligenceView()
         case .coach: CoachView()
         case .live: LiveView()
