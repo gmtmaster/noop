@@ -206,6 +206,9 @@
         }
       }
     },
+    "%@ alarm" : {
+
+    },
     "%@ is free and always will be. If it's useful to you, you can chip in to help with development and testing costs. Totally optional." : {
       "localizations" : {
         "de" : {
@@ -790,6 +793,12 @@
         }
       }
     },
+    "Alarm config" : {
+
+    },
+    "Alarm mode" : {
+
+    },
     "All Sessions" : {
       "localizations" : {
         "de" : {
@@ -933,6 +942,9 @@
           }
         }
       }
+    },
+    "Ask Coach" : {
+
     },
     "Ask Coach about your data…" : {
       "localizations" : {
@@ -1177,6 +1189,18 @@
         }
       }
     },
+    "Band connected" : {
+
+    },
+    "Band connection required" : {
+
+    },
+    "Band controls" : {
+
+    },
+    "Band default" : {
+
+    },
     "Battery %lld%%" : {
       "localizations" : {
         "de" : {
@@ -1210,6 +1234,9 @@
       }
     },
     "Beats per minute" : {
+
+    },
+    "Bedtime" : {
 
     },
     "Before you use NOOP" : {
@@ -1667,6 +1694,9 @@
     "Choose how distances, weights, heights and temperatures are shown. Your data is always stored the same way — this only changes the display." : {
 
     },
+    "Choose Regular or Off to use the current band alarm API." : {
+
+    },
     "Choose the buzz pattern for %@" : {
       "localizations" : {
         "de" : {
@@ -1946,6 +1976,9 @@
       }
     },
     "Connect and bond a 5/MG strap first." : {
+
+    },
+    "Connect and fully pair your band to save." : {
 
     },
     "Connect strap for buzz cues" : {
@@ -2929,6 +2962,9 @@
         }
       }
     },
+    "Haptic" : {
+
+    },
     "Haptic-paced breathing · watch your HRV respond" : {
       "localizations" : {
         "de" : {
@@ -3619,6 +3655,9 @@
         }
       }
     },
+    "Learn how this metric relates to sleep quality and recovery." : {
+
+    },
     "Learning your baseline — %lld of %lld nights." : {
       "localizations" : {
         "de" : {
@@ -3800,6 +3839,9 @@
           }
         }
       }
+    },
+    "Local sleep score and schedule" : {
+
     },
     "Log" : {
       "localizations" : {
@@ -4365,6 +4407,9 @@
         }
       }
     },
+    "No trend data" : {
+
+    },
     "No workouts yet. They come from your WHOOP and Apple Health history. Import in Data Sources to bring them in — or add one you tracked elsewhere." : {
 
     },
@@ -4516,6 +4561,9 @@
           }
         }
       }
+    },
+    "NOOP uses the band’s existing fixed-time firmware alarm. It can fire while the app is closed." : {
+
     },
     "NOOP-computed" : {
       "localizations" : {
@@ -4676,6 +4724,9 @@
           }
         }
       }
+    },
+    "Not yet supported by NOOP’s existing alarm API." : {
+
     },
     "Nothing imported yet. On an iPhone: Health app, tap your photo, Export All Health Data, then import the .zip here in Data Sources." : {
       "localizations" : {
@@ -4868,6 +4919,9 @@
           }
         }
       }
+    },
+    "Opens sleep details" : {
+
     },
     "Opens the GitHub releases page in your browser. NOOP itself makes no network connections — the macOS sandbox has no network entitlement." : {
       "extractionState" : "stale",
@@ -5141,6 +5195,9 @@
         }
       }
     },
+    "Progressive" : {
+
+    },
     "Provenance" : {
       "localizations" : {
         "de" : {
@@ -5174,6 +5231,9 @@
       }
     },
     "Put the strap on first — the deep stream is on-wrist only." : {
+
+    },
+    "Quality" : {
 
     },
     "Question" : {
@@ -5613,6 +5673,9 @@
         }
       }
     },
+    "Resources" : {
+
+    },
     "Respiratory" : {
       "localizations" : {
         "de" : {
@@ -5798,6 +5861,9 @@
         }
       }
     },
+    "Save to band" : {
+
+    },
     "Save workout" : {
 
     },
@@ -5816,6 +5882,9 @@
           }
         }
       }
+    },
+    "Saved to band" : {
+
     },
     "Saves every raw 5/MG frame (with a timestamp and the live heart rate) to a JSON file you can share to help map the biometric layout. This only records frames the strap already sent — it never writes to your strap — so it is safe to leave on. Export the file and attach it to a protocol-mapping issue." : {
       "localizations" : {
@@ -6159,6 +6228,12 @@
         }
       }
     },
+    "Sleep Alarm" : {
+
+    },
+    "Sleep Coach" : {
+
+    },
     "Sleep Debt" : {
       "localizations" : {
         "de" : {
@@ -6191,6 +6266,9 @@
           }
         }
       }
+    },
+    "Sleep schedule" : {
+
     },
     "Sleep stage breakdown: deep %lld percent, light %lld percent, REM %lld percent, awake %lld percent" : {
       "localizations" : {
@@ -6686,6 +6764,9 @@
         }
       }
     },
+    "Target amount" : {
+
+    },
     "Temperature" : {
 
     },
@@ -6739,6 +6820,9 @@
           }
         }
       }
+    },
+    "Test haptic" : {
+
     },
     "The full terms are in TERMS.md, shipped with NOOP. This is not legal advice." : {
 
@@ -6843,6 +6927,12 @@
         }
       }
     },
+    "Time Asleep" : {
+
+    },
+    "Time in Bed" : {
+
+    },
     "Time range" : {
       "localizations" : {
         "de" : {
@@ -6942,6 +7032,12 @@
         }
       }
     },
+    "Tonight" : {
+
+    },
+    "Tonight’s sleep needed" : {
+
+    },
     "Total Calories" : {
       "localizations" : {
         "de" : {
@@ -7025,6 +7121,9 @@
         }
       }
     },
+    "Trend analysis will appear when enough sleep history is available." : {
+
+    },
     "Trends" : {
       "localizations" : {
         "de" : {
@@ -7040,6 +7139,9 @@
           }
         }
       }
+    },
+    "Trends Analysis" : {
+
     },
     "Trends need history to draw. Import your WHOOP export in Data Sources to see weeks, months and years instantly." : {
       "localizations" : {
@@ -7127,6 +7229,9 @@
         }
       }
     },
+    "Used by Smart and Needed modes" : {
+
+    },
     "v%@" : {
       "localizations" : {
         "de" : {
@@ -7144,6 +7249,9 @@
       }
     },
     "Version %@ is available" : {
+
+    },
+    "View insights" : {
 
     },
     "Visual only" : {
@@ -7194,6 +7302,9 @@
         }
       }
     },
+    "Wake" : {
+
+    },
     "Wake at" : {
       "localizations" : {
         "de" : {
@@ -7209,6 +7320,9 @@
           }
         }
       }
+    },
+    "Wake up at" : {
+
     },
     "We compare today's resting heart rate and HRV to your own 30-day baseline. A higher-than-usual resting HR and a lower-than-usual HRV both push the score up — classic signs the body is activated. The combined shift is mapped onto a 0–3 scale: 0 is calm, 1.5 sits at your baseline, 3 is highly activated." : {
       "localizations" : {
@@ -7227,6 +7341,9 @@
       }
     },
     "Wear the strap, tap once, then let it sync and share your strap log." : {
+
+    },
+    "Wear your strap through more nights to build this trend." : {
 
     },
     "Weight" : {
@@ -7432,6 +7549,9 @@
           }
         }
       }
+    },
+    "Wind down" : {
+
     },
     "Window" : {
       "localizations" : {

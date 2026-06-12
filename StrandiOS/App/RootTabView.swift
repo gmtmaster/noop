@@ -13,7 +13,6 @@ struct RootTabView: View {
             tab(TodayDashboardView(), "Today", "circle.hexagongrid.fill")
             tab(TrendsView(), "Trends", "chart.xyaxis.line")
             tab(LiveView(), "Live", "waveform.path.ecg")
-            tab(SleepView(), "Sleep", "bed.double.fill")
             moreTab
         }
         .tint(StrandPalette.accent)

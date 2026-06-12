@@ -6,6 +6,7 @@ struct TodayDashboardView: View {
     @EnvironmentObject private var repo: Repository
     @EnvironmentObject private var live: LiveState
     @AppStorage("profile.firstName") private var firstName = "Adam"
+    @State private var showingSleepDetail = false
 
     private let biomarkerGrid = [
         GridItem(.adaptive(minimum: 150, maximum: 260), spacing: 10)
@@ -36,6 +37,10 @@ struct TodayDashboardView: View {
         }
         .background(background)
         .task { await repo.refresh() }
+        .fullScreenCover(isPresented: $showingSleepDetail) {
+            SleepDetailView()
+                .environmentObject(repo)
+        }
     }
 
     private var greeting: some View {
@@ -56,7 +61,13 @@ struct TodayDashboardView: View {
     private var primaryMetrics: some View {
         StrandCard(padding: 14, cornerRadius: 18) {
             HStack(alignment: .top, spacing: 8) {
-                sleepCard.frame(maxWidth: .infinity)
+                Button { showingSleepDetail = true } label: {
+                    sleepCard
+                }
+                .buttonStyle(.plain)
+                .frame(maxWidth: .infinity)
+                .accessibilityHint("Opens sleep details")
+                // TODO: Apply this navigation pattern to Recovery and Strain detail screens.
                 recoveryCard.frame(maxWidth: .infinity)
                 strainCard.frame(maxWidth: .infinity)
             }
