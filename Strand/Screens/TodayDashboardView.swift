@@ -8,6 +8,7 @@ struct TodayDashboardView: View {
     @AppStorage("profile.firstName") private var firstName = "Adam"
     @State private var showingSleepDetail = false
     @State private var showingRecoveryDetail = false
+    @State private var showingStrainDetail = false
 
     private let biomarkerGrid = [
         GridItem(.adaptive(minimum: 150, maximum: 260), spacing: 10)
@@ -47,6 +48,10 @@ struct TodayDashboardView: View {
             RecoveryDetailView()
                 .environmentObject(repo)
         }
+        .sheet(isPresented: $showingStrainDetail) {
+            StrainDetailView()
+                .environmentObject(repo)
+        }
 #else
         .fullScreenCover(isPresented: $showingSleepDetail) {
             SleepDetailView()
@@ -54,6 +59,10 @@ struct TodayDashboardView: View {
         }
         .fullScreenCover(isPresented: $showingRecoveryDetail) {
             RecoveryDetailView()
+                .environmentObject(repo)
+        }
+        .fullScreenCover(isPresented: $showingStrainDetail) {
+            StrainDetailView()
                 .environmentObject(repo)
         }
 #endif
@@ -89,7 +98,12 @@ struct TodayDashboardView: View {
                 .buttonStyle(.plain)
                 .frame(maxWidth: .infinity)
                 .accessibilityHint("Opens recovery details")
-                strainCard.frame(maxWidth: .infinity)
+                Button { showingStrainDetail = true } label: {
+                    strainCard
+                }
+                .buttonStyle(.plain)
+                .frame(maxWidth: .infinity)
+                .accessibilityHint("Opens strain details")
             }
         }
     }
