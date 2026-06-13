@@ -7,6 +7,7 @@ struct TodayDashboardView: View {
     @EnvironmentObject private var live: LiveState
     @AppStorage("profile.firstName") private var firstName = "Adam"
     @State private var showingSleepDetail = false
+    @State private var showingRecoveryDetail = false
 
     private let biomarkerGrid = [
         GridItem(.adaptive(minimum: 150, maximum: 260), spacing: 10)
@@ -37,10 +38,25 @@ struct TodayDashboardView: View {
         }
         .background(background)
         .task { await repo.refresh() }
+#if os(macOS)
+        .sheet(isPresented: $showingSleepDetail) {
+            SleepDetailView()
+                .environmentObject(repo)
+        }
+        .sheet(isPresented: $showingRecoveryDetail) {
+            RecoveryDetailView()
+                .environmentObject(repo)
+        }
+#else
         .fullScreenCover(isPresented: $showingSleepDetail) {
             SleepDetailView()
                 .environmentObject(repo)
         }
+        .fullScreenCover(isPresented: $showingRecoveryDetail) {
+            RecoveryDetailView()
+                .environmentObject(repo)
+        }
+#endif
     }
 
     private var greeting: some View {
@@ -67,8 +83,12 @@ struct TodayDashboardView: View {
                 .buttonStyle(.plain)
                 .frame(maxWidth: .infinity)
                 .accessibilityHint("Opens sleep details")
-                // TODO: Apply this navigation pattern to Recovery and Strain detail screens.
-                recoveryCard.frame(maxWidth: .infinity)
+                Button { showingRecoveryDetail = true } label: {
+                    recoveryCard
+                }
+                .buttonStyle(.plain)
+                .frame(maxWidth: .infinity)
+                .accessibilityHint("Opens recovery details")
                 strainCard.frame(maxWidth: .infinity)
             }
         }

@@ -1809,6 +1809,9 @@
         }
       }
     },
+    "Coach questions will be connected to the existing coach flow later." : {
+
+    },
     "Coach reads a summary of your last two weeks plus 30-day averages and recent workouts, then answers in plain language. Try a suggestion below." : {
       "localizations" : {
         "de" : {
@@ -3658,6 +3661,9 @@
     "Learn how this metric relates to sleep quality and recovery." : {
 
     },
+    "Learn how this signal contributes to recovery and daily readiness." : {
+
+    },
     "Learning your baseline — %lld of %lld nights." : {
       "localizations" : {
         "de" : {
@@ -4920,6 +4926,9 @@
         }
       }
     },
+    "Opens recovery details" : {
+
+    },
     "Opens sleep details" : {
 
     },
@@ -5009,6 +5018,9 @@
           }
         }
       }
+    },
+    "Oxygen Saturation" : {
+
     },
     "p < 0.05" : {
       "localizations" : {
@@ -5175,6 +5187,9 @@
           }
         }
       }
+    },
+    "Powered by your local NOOP analytics" : {
+
     },
     "Previous night" : {
 
@@ -5539,6 +5554,9 @@
         }
       }
     },
+    "Recovery Coach" : {
+
+    },
     "Recovery weighs your HRV against your personal baseline (~60%), resting heart rate (~20%), sleep performance (~15%) and respiration (~5%). Day strain is a 0–21 cardiovascular load from time in heart-rate zones. Sleep is staged from movement and heart rate. Everything is computed here from the strap's raw data — it works for any day NOOP collected raw streams." : {
       "extractionState" : "stale",
       "localizations" : {
@@ -5774,6 +5792,9 @@
           }
         }
       }
+    },
+    "Resting HRV" : {
+
     },
     "Restorative" : {
       "localizations" : {
@@ -7121,6 +7142,9 @@
         }
       }
     },
+    "Trend analysis will appear when enough recovery history is available." : {
+
+    },
     "Trend analysis will appear when enough sleep history is available." : {
 
     },
@@ -7651,6 +7675,9 @@
           }
         }
       }
+    },
+    "Wrist Temperature" : {
+
     },
     "Yes" : {
 
