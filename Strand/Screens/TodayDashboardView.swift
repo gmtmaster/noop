@@ -7,15 +7,18 @@ struct TodayDashboardView: View {
     @EnvironmentObject private var repo: Repository
     @EnvironmentObject private var live: LiveState
     @EnvironmentObject private var profile: ProfileStore
+    @EnvironmentObject private var intelligence: IntelligenceEngine
     @AppStorage("profile.firstName") private var firstName = "Adam"
     @AppStorage(UnitPrefs.effortScaleKey) private var effortScaleRaw = EffortScale.hundred.rawValue
     @State private var showingSleepDetail = false
     @State private var showingRecoveryDetail = false
     @State private var showingStrainDetail = false
+    @State private var showingStressDetail = false
     @State private var hrPoints: [TrendPoint] = []
     @State private var liveTodayStrain: Double?
     @State private var restScore: Double?
     @State private var stressScore: Double?
+    @State private var stressDetailText = "Calibrating"
 
     private var effortScale: EffortScale { UnitPrefs.resolveEffortScale(effortScaleRaw) }
 
@@ -61,6 +64,7 @@ struct TodayDashboardView: View {
         .sheet(isPresented: $showingSleepDetail) {
             SleepDetailView()
                 .environmentObject(repo)
+                .environmentObject(intelligence)
         }
         .sheet(isPresented: $showingRecoveryDetail) {
             RecoveryDetailView()
@@ -70,10 +74,15 @@ struct TodayDashboardView: View {
             StrainDetailView()
                 .environmentObject(repo)
         }
+        .sheet(isPresented: $showingStressDetail) {
+            StressView()
+                .environmentObject(repo)
+        }
 #else
         .fullScreenCover(isPresented: $showingSleepDetail) {
             SleepDetailView()
                 .environmentObject(repo)
+                .environmentObject(intelligence)
         }
         .fullScreenCover(isPresented: $showingRecoveryDetail) {
             RecoveryDetailView()
@@ -81,6 +90,10 @@ struct TodayDashboardView: View {
         }
         .fullScreenCover(isPresented: $showingStrainDetail) {
             StrainDetailView()
+                .environmentObject(repo)
+        }
+        .fullScreenCover(isPresented: $showingStressDetail) {
+            StressView()
                 .environmentObject(repo)
         }
 #endif
@@ -172,11 +185,15 @@ struct TodayDashboardView: View {
     }
 
     private var stressEnergy: some View {
-        StressEnergyCard(
-            stress: snapshot.stressText,
-            stressDetail: snapshot.stress == nil ? "No stress score" : "of 3 today",
-            energy: snapshot.energy.map { "\(Int($0.rounded()))" } ?? "--"
-        )
+        Button { showingStressDetail = true } label: {
+            StressEnergyCard(
+                stress: snapshot.stressText,
+                stressDetail: stressDetailText,
+                energy: snapshot.energy.map { "\(Int($0.rounded()))" } ?? "--"
+            )
+        }
+        .buttonStyle(.plain)
+        .accessibilityHint("Opens stress details")
     }
 
     private var biomarkers: some View {
@@ -327,7 +344,13 @@ struct TodayDashboardView: View {
         let restSeries = await repo.exploreSeries(key: "sleep_performance", source: "my-whoop")
         restScore = Dictionary(restSeries.map { ($0.day, $0.value) }, uniquingKeysWith: { _, last in last })[todayKey]
         let stressSeries = await repo.series(key: "stress", source: "my-whoop")
-        stressScore = Dictionary(stressSeries.map { ($0.day, $0.value) }, uniquingKeysWith: { _, last in last })[todayKey]
+        if let stressModel = StressModel(days: repo.days, stored: stressSeries) {
+            stressScore = stressModel.score
+            stressDetailText = stressModel.usingStored ? "Recorded daily stress" : "Estimated from HRV + resting HR"
+        } else {
+            stressScore = nil
+            stressDetailText = "Calibrating"
+        }
     }
 }
 
