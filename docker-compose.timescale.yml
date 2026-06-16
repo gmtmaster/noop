@@ -1,0 +1,32 @@
+services:
+  timescale:
+    image: timescale/timescaledb:latest-pg16
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-noop}
+      POSTGRES_USER: ${POSTGRES_USER:-noop}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-noop}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - noop-timescale-data:/var/lib/postgresql/data
+      - ./server/timescale/migrations:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-noop} -d ${POSTGRES_DB:-noop}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  timescale-api:
+    build:
+      context: ./server/timescale
+    environment:
+      NOOP_TIMESCALE_DATABASE_URL: postgresql://noop:noop@timescale:5432/noop
+      NOOP_TIMESCALE_API_TOKEN: ${NOOP_TIMESCALE_API_TOKEN:-dev-token}
+    ports:
+      - "${NOOP_TIMESCALE_API_PORT:-8088}:8088"
+    depends_on:
+      timescale:
+        condition: service_healthy
+
+volumes:
+  noop-timescale-data:
