@@ -18,10 +18,8 @@ enum NavItem: String, CaseIterable, Identifiable, Hashable {
     case stress = "Stress"
     case appleHealth = "Apple Health"
     case dataSources = "Data Sources"
-    case devices = "Devices"
     case notifications = "Notifications"
     case automation = "Automations"
-    case smartAlarm = "Smart Alarm"
     case settings = "Settings"
     case support = "Support"
 
@@ -47,10 +45,8 @@ enum NavItem: String, CaseIterable, Identifiable, Hashable {
         case .stress: return "Stress"
         case .appleHealth: return "Apple Health"
         case .dataSources: return "Data Sources"
-        case .devices: return "Devices"
         case .notifications: return "Notifications"
         case .automation: return "Automations"
-        case .smartAlarm: return "Smart Alarm"
         case .settings: return "Settings"
         case .support: return "Support"
         }
@@ -74,10 +70,8 @@ enum NavItem: String, CaseIterable, Identifiable, Hashable {
         case .stress: return "gauge.with.dots.needle.50percent"
         case .appleHealth: return "heart.fill"
         case .dataSources: return "square.and.arrow.down.fill"
-        case .devices: return "badge.plus.radiowaves.right"
         case .notifications: return "bell.badge.fill"
         case .automation: return "wand.and.stars"
-        case .smartAlarm: return "alarm.fill"
         case .settings: return "gearshape.fill"
         case .support: return "heart.fill"
         }
@@ -89,9 +83,6 @@ struct RootView: View {
     // status pill is isolated into SidebarStatus so HR/frame ticks don't re-render the whole
     // NavigationSplitView shell + sidebar list.
     @EnvironmentObject var repo: Repository
-    /// Cross-screen navigation requests (e.g. Live → "Manage devices"). Observed here so a screen can
-    /// switch the sidebar selection without owning it — see `NavRouter`.
-    @EnvironmentObject var router: NavRouter
     @State private var selection: NavItem? = .today
 
     var body: some View {
@@ -99,7 +90,7 @@ struct RootView: View {
             VStack(spacing: 0) {
                 List(NavItem.allCases, selection: $selection) { item in
                     Label(item.titleKey, systemImage: item.icon)
-                        .font(StrandFont.rounded(13, weight: .medium))
+                        .font(.system(size: 13, weight: .medium))
                         .tag(item)
                 }
                 .listStyle(.sidebar)
@@ -111,34 +102,16 @@ struct RootView: View {
             .safeAreaInset(edge: .top) { brand }
         } detail: {
             detail
-                // Tab/section crossfade — README §Motion: "switching tabs uses a crossfade ~240ms",
-                // global calm easing cubic-bezier(0.22,1,0.36,1). Opacity swap between detail roots
-                // keyed on the selected nav item; restrained (no slide) for the desktop sidebar shell.
-                .id(selection ?? .today)
-                .transition(.opacity)
-                .animation(.timingCurve(0.22, 1, 0.36, 1, duration: 0.24), value: selection)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(StrandPalette.surfaceBase.ignoresSafeArea())
         }
         .task { await repo.refresh() }
-        // Honour a cross-screen request to open a top-level destination (e.g. Live's "Manage devices"),
-        // then clear it so the same tap can fire again later. Devices maps to the `.devices` sidebar item.
-        .onChangeCompat(of: router.requestedDestination) { dest in
-            switch dest {
-            case .devices: selection = .devices
-            case nil: break
-            }
-            if dest != nil { router.requestedDestination = nil }
-        }
     }
 
     private var brand: some View {
         HStack(spacing: 8) {
-            // In-app logo: the open recovery-ring mark so the wordmark reads as a true lockup
-            // (README logo system — mark + "NOOP"). Flat gold gradient, low glow per the v3 restraint.
-            BrandMark(size: 22)
             Text("NOOP")
-                .font(StrandFont.rounded(20, weight: .bold))
+                .font(.system(size: 20, weight: .bold))
                 .foregroundStyle(StrandPalette.textPrimary)
             Spacer()
         }
@@ -147,7 +120,7 @@ struct RootView: View {
 
     @ViewBuilder private var detail: some View {
         switch selection ?? .today {
-        case .today: TodayView()
+        case .today: TodayDashboardView()
         case .intelligence: IntelligenceView()
         case .coach: CoachView()
         case .live: LiveView()
@@ -163,46 +136,11 @@ struct RootView: View {
         case .stress: StressView()
         case .appleHealth: AppleHealthView()
         case .dataSources: DataSourcesView()
-        case .devices: DevicesView()
         case .notifications: NotificationSettingsView()
         case .automation: AutomationsView()
-        case .smartAlarm: SmartAlarmView()
         case .settings: SettingsView()
         case .support: SupportView()
         }
-    }
-}
-
-/// The NOOP logo mark — an **open recovery ring** (~80% arc, round caps, starting at 12 o'clock)
-/// with a **solid centre core dot** ("on-device core"), per the README logo system. Rendered in the
-/// gold gradient and kept deliberately flat / low-glow for the v3 Titanium & Gold restraint. Drawn
-/// purely from design tokens so it tracks the palette. Sized to optically x-height-match the wordmark.
-struct BrandMark: View {
-    var size: CGFloat = 22
-
-    var body: some View {
-        ZStack {
-            // Open ring: leave ~20% of the circumference as a gap (trim 0 → 0.8), then rotate so the
-            // gap sits at the top — the gold gradient sweeps clockwise from 12 o'clock.
-            Circle()
-                .trim(from: 0, to: 0.8)
-                .stroke(
-                    AngularGradient(gradient: StrandPalette.goldGradient,
-                                    center: .center,
-                                    angle: .degrees(-90)),
-                    style: StrokeStyle(lineWidth: size * 0.16, lineCap: .round)
-                )
-                .rotationEffect(.degrees(-90))
-                .frame(width: size * 0.84, height: size * 0.84)
-
-            // Solid centre core dot — the "on-device core".
-            Circle()
-                .fill(LinearGradient(gradient: StrandPalette.goldGradient,
-                                     startPoint: .topLeading, endPoint: .bottomTrailing))
-                .frame(width: size * 0.26, height: size * 0.26)
-        }
-        .frame(width: size, height: size)
-        .accessibilityHidden(true)
     }
 }
 
@@ -218,10 +156,10 @@ private struct SidebarStatus: View {
                 .shadow(color: statusColor.opacity(0.6), radius: live.connected ? 4 : 0)
             VStack(alignment: .leading, spacing: 1) {
                 Text(statusText)
-                    .font(StrandFont.rounded(12, weight: .medium))
+                    .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(StrandPalette.textPrimary)
                 Text(live.batteryPct.map { "Battery \(Int($0))%" } ?? "Strap not connected")
-                    .font(StrandFont.rounded(11))
+                    .font(.system(size: 11))
                     .foregroundStyle(StrandPalette.textTertiary)
             }
             Spacer()
@@ -230,14 +168,12 @@ private struct SidebarStatus: View {
         .background(StrandPalette.surfaceRaised, in: RoundedRectangle(cornerRadius: 10))
     }
 
-    // Shares LiveState.connectionStatus* with the Settings strap card so the two never disagree (#266):
-    // a connected-but-unbonded 5/MG now reads "Connected" here too, not a misleading "Connecting…".
     private var statusColor: Color {
-        live.connectionStatusIsActive ? StrandPalette.statusPositive
-            : live.connectionStatusIsIdle ? StrandPalette.statusWarning
+        live.bonded ? StrandPalette.statusPositive
+            : live.connected ? StrandPalette.statusWarning
             : StrandPalette.statusCritical
     }
     private var statusText: String {
-        live.connectionStatusLabel
+        live.bonded ? "WHOOP · Bonded" : live.connected ? "Connecting…" : "Disconnected"
     }
 }
