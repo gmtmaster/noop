@@ -107,15 +107,10 @@ struct TimescaleSyncSettingsView: View {
 
     private var validationBlock: some View {
         VStack(alignment: .leading, spacing: 6) {
-            if let reason = settings.testDisabledReason {
-                Text(reason)
+            ForEach(Array(settings.validationMessages.enumerated()), id: \.offset) { _, message in
+                Text(message)
                     .font(StrandFont.caption)
-                    .foregroundStyle(StrandPalette.textTertiary)
-            }
-            if let reason = settings.syncDisabledReason {
-                Text(reason)
-                    .font(StrandFont.caption)
-                    .foregroundStyle(StrandPalette.statusWarning)
+                    .foregroundStyle(message == settings.serverURLValidationMessage ? StrandPalette.statusWarning : StrandPalette.textTertiary)
             }
         }
     }

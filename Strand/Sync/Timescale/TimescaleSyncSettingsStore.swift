@@ -56,12 +56,12 @@ final class TimescaleSyncSettingsStore: ObservableObject {
         tokenStored || !tokenDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
+    var serverURLValidationMessage: String? {
+        TimescaleSyncURL.validationMessage(for: profile.serverURL)
+    }
+
     var hasValidServerURL: Bool {
-        guard let url = URL(string: profile.serverURL.trimmingCharacters(in: .whitespacesAndNewlines)),
-              let scheme = url.scheme?.lowercased(),
-              ["http", "https"].contains(scheme),
-              url.host?.isEmpty == false else { return false }
-        return true
+        serverURLValidationMessage == nil
     }
 
     var hasValidUserID: Bool {
@@ -82,8 +82,8 @@ final class TimescaleSyncSettingsStore: ObservableObject {
 
     var validationMessages: [String] {
         var messages: [String] = []
-        if !hasValidServerURL {
-            messages.append("Enter a valid http:// or https:// server URL.")
+        if let serverURLValidationMessage {
+            messages.append(serverURLValidationMessage)
         }
         if !hasTokenForAction {
             messages.append("Paste and save a bearer token.")
@@ -99,7 +99,7 @@ final class TimescaleSyncSettingsStore: ObservableObject {
 
     var testDisabledReason: String? {
         guard !canTestConnection else { return nil }
-        if !hasValidServerURL { return "Test needs a valid server URL." }
+        if let serverURLValidationMessage { return serverURLValidationMessage }
         if !hasTokenForAction { return "Test needs a bearer token." }
         return nil
     }
