@@ -52,12 +52,71 @@ final class TimescaleSyncSettingsStore: ObservableObject {
         tokenStore.readToken()
     }
 
-    func saveTokenDraft() {
+    var hasTokenForAction: Bool {
+        tokenStored || !tokenDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    var hasValidServerURL: Bool {
+        guard let url = URL(string: profile.serverURL.trimmingCharacters(in: .whitespacesAndNewlines)),
+              let scheme = url.scheme?.lowercased(),
+              ["http", "https"].contains(scheme),
+              url.host?.isEmpty == false else { return false }
+        return true
+    }
+
+    var hasValidUserID: Bool {
+        UUID(uuidString: profile.userID.trimmingCharacters(in: .whitespacesAndNewlines)) != nil
+    }
+
+    var hasDeviceID: Bool {
+        !profile.deviceID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    var canTestConnection: Bool {
+        hasValidServerURL && hasTokenForAction
+    }
+
+    var canSyncNow: Bool {
+        hasValidServerURL && hasTokenForAction && hasValidUserID && hasDeviceID
+    }
+
+    var validationMessages: [String] {
+        var messages: [String] = []
+        if !hasValidServerURL {
+            messages.append("Enter a valid http:// or https:// server URL.")
+        }
+        if !hasTokenForAction {
+            messages.append("Paste and save a bearer token.")
+        }
+        if !hasValidUserID {
+            messages.append("Enter a valid user UUID before syncing.")
+        }
+        if !hasDeviceID {
+            messages.append("Enter a device ID before syncing.")
+        }
+        return messages
+    }
+
+    var testDisabledReason: String? {
+        guard !canTestConnection else { return nil }
+        if !hasValidServerURL { return "Test needs a valid server URL." }
+        if !hasTokenForAction { return "Test needs a bearer token." }
+        return nil
+    }
+
+    var syncDisabledReason: String? {
+        guard !canSyncNow else { return nil }
+        return validationMessages.first
+    }
+
+    @discardableResult
+    func saveTokenDraft() -> Bool {
         let trimmed = tokenDraft.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
-        tokenStore.save(trimmed)
+        guard !trimmed.isEmpty else { return tokenStored }
+        guard tokenStore.save(trimmed) else { return false }
         tokenDraft = ""
         tokenStored = true
+        return true
     }
 
     func clearToken() {
@@ -83,8 +142,7 @@ final class TimescaleSyncSettingsStore: ObservableObject {
 
     func shouldSync(now: Date = Date()) -> Bool {
         guard profile.enabled,
-              profile.isConfigured,
-              tokenStored,
+              canSyncNow,
               let seconds = profile.interval.seconds else { return false }
         guard let last = lastAttemptedSync else { return true }
         return now.timeIntervalSince(last) >= seconds
@@ -160,13 +218,14 @@ struct TimescaleTokenStore {
     private let service = "com.noop.timescale-sync"
     private let account = "bearer-token"
 
-    func save(_ token: String) {
-        guard let data = token.data(using: .utf8) else { return }
+    @discardableResult
+    func save(_ token: String) -> Bool {
+        guard let data = token.data(using: .utf8) else { return false }
         SecItemDelete(baseQuery as CFDictionary)
         var attrs = baseQuery
         attrs[kSecValueData as String] = data
         attrs[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
-        SecItemAdd(attrs as CFDictionary, nil)
+        return SecItemAdd(attrs as CFDictionary, nil) == errSecSuccess
     }
 
     func readToken() -> String? {

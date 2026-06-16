@@ -4,6 +4,7 @@ import StrandDesign
 struct TimescaleSyncSettingsView: View {
     @ObservedObject var manager: TimescaleSyncManager
     @ObservedObject private var settings: TimescaleSyncSettingsStore
+    @State private var confirmFullResync = false
 
     init(manager: TimescaleSyncManager) {
         self.manager = manager
@@ -36,6 +37,7 @@ struct TimescaleSyncSettingsView: View {
             .pickerStyle(.menu)
             .frame(maxWidth: .infinity, alignment: .leading)
 
+            validationBlock
             actionRow
             statusBlock
         }
@@ -74,7 +76,7 @@ struct TimescaleSyncSettingsView: View {
             } label: {
                 Label("Test", systemImage: "network")
             }
-            .disabled(manager.isSyncing || !settings.profile.isConfigured)
+            .disabled(manager.isSyncing || !settings.canTestConnection)
 
             Button {
                 Task { await manager.syncNow() }
@@ -83,16 +85,39 @@ struct TimescaleSyncSettingsView: View {
             }
             .buttonStyle(.borderedProminent)
             .tint(StrandPalette.accent)
-            .disabled(manager.isSyncing || !settings.profile.isConfigured || !settings.tokenStored)
+            .disabled(manager.isSyncing || !settings.canSyncNow)
 
             Button {
-                Task { await manager.syncNow(reason: "full-resync", fullResync: true) }
+                confirmFullResync = true
             } label: {
                 Label("Full resync", systemImage: "clock.arrow.circlepath")
             }
-            .disabled(manager.isSyncing || !settings.profile.isConfigured || !settings.tokenStored)
+            .disabled(manager.isSyncing || !settings.canSyncNow)
         }
         .labelStyle(.titleAndIcon)
+        .confirmationDialog("Full resync replays the local export lookback windows. Server upserts keep records idempotent.",
+                            isPresented: $confirmFullResync,
+                            titleVisibility: .visible) {
+            Button("Full resync") {
+                Task { await manager.syncNow(reason: "full-resync", fullResync: true) }
+            }
+            Button("Cancel", role: .cancel) { }
+        }
+    }
+
+    private var validationBlock: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            if let reason = settings.testDisabledReason {
+                Text(reason)
+                    .font(StrandFont.caption)
+                    .foregroundStyle(StrandPalette.textTertiary)
+            }
+            if let reason = settings.syncDisabledReason {
+                Text(reason)
+                    .font(StrandFont.caption)
+                    .foregroundStyle(StrandPalette.statusWarning)
+            }
+        }
     }
 
     private var statusBlock: some View {

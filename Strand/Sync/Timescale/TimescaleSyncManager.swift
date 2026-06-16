@@ -41,7 +41,10 @@ final class TimescaleSyncManager: ObservableObject {
 
     func syncNow(reason: String = "manual", fullResync: Bool = false) async {
         guard !isSyncing else { return }
-        guard validateConfiguration() else { return }
+        guard prepareTokenIfNeeded(), validateConfiguration(.sync) else { return }
+        #if DEBUG
+        print("Timescale sync: \(fullResync ? "full resync" : "sync now") tapped, reason=\(reason)")
+        #endif
         isSyncing = true
         settings.markAttempt()
         defer { isSyncing = false }
@@ -69,7 +72,11 @@ final class TimescaleSyncManager: ObservableObject {
     }
 
     func testConnection() async {
-        guard validateConfiguration(requireToken: false) else { return }
+        guard !isSyncing else { return }
+        guard prepareTokenIfNeeded(), validateConfiguration(.test) else { return }
+        #if DEBUG
+        print("Timescale sync: test connection tapped")
+        #endif
         isSyncing = true
         settings.markAttempt()
         defer { isSyncing = false }
@@ -90,26 +97,52 @@ final class TimescaleSyncManager: ObservableObject {
     }
 
     func saveTokenDraft() {
-        settings.saveTokenDraft()
+        if !settings.saveTokenDraft() {
+            settings.lastStatus = .failed
+            settings.lastErrorMessage = "Could not save the bearer token to Keychain."
+            bannerMessage = settings.lastErrorMessage
+        }
     }
 
     func clearToken() {
         settings.clearToken()
     }
 
-    private func validateConfiguration(requireToken: Bool = true) -> Bool {
-        guard settings.profile.isConfigured else {
-            settings.lastStatus = .notConfigured
-            settings.lastErrorMessage = "Server URL, user UUID and device ID are required."
-            bannerMessage = settings.lastErrorMessage
-            return false
+    private func prepareTokenIfNeeded() -> Bool {
+        if settings.tokenDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return settings.tokenStored
         }
-        guard !requireToken || settings.tokenStored else {
-            settings.lastStatus = .notConfigured
-            settings.lastErrorMessage = "Save a bearer token before syncing."
+        guard settings.saveTokenDraft() else {
+            settings.lastStatus = .failed
+            settings.lastErrorMessage = "Could not save the bearer token to Keychain."
             bannerMessage = settings.lastErrorMessage
             return false
         }
         return true
+    }
+
+    private func validateConfiguration(_ action: ValidationAction) -> Bool {
+        switch action {
+        case .test:
+            guard settings.canTestConnection else {
+                settings.lastStatus = .notConfigured
+                settings.lastErrorMessage = settings.testDisabledReason ?? "Server URL and bearer token are required."
+                bannerMessage = settings.lastErrorMessage
+                return false
+            }
+        case .sync:
+            guard settings.canSyncNow else {
+                settings.lastStatus = .notConfigured
+                settings.lastErrorMessage = settings.syncDisabledReason ?? "Server URL, bearer token, user UUID and device ID are required."
+                bannerMessage = settings.lastErrorMessage
+                return false
+            }
+        }
+        return true
+    }
+
+    private enum ValidationAction {
+        case test
+        case sync
     }
 }
