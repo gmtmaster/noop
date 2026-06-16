@@ -2,14 +2,14 @@ import SwiftUI
 import StrandDesign
 
 enum SleepTheme {
-    static let background = Color(hex: "#08091A")
-    static let surface = Color(hex: "#12132A")
-    static let surfaceRaised = Color(hex: "#191A38")
-    static let border = Color(hex: "#2B2D55")
-    static let purple = Color(hex: "#9C7CFF")
-    static let violet = Color(hex: "#7657E8")
-    static let blue = Color(hex: "#687DFF")
-    static let textSecondary = Color(hex: "#A7A8C4")
+    static let background = StrandPalette.surfaceBase
+    static let surface = StrandPalette.surfaceRaised
+    static let surfaceRaised = StrandPalette.surfaceOverlay
+    static let border = StrandPalette.hairline
+    static let purple = StrandPalette.restBright
+    static let violet = StrandPalette.restDeep
+    static let blue = StrandPalette.restColor
+    static let textSecondary = StrandPalette.textSecondary
 }
 
 struct SleepHeroRing: View {
@@ -24,7 +24,7 @@ struct SleepHeroRing: View {
                 .trim(from: 0, to: min(max(progress ?? 0, 0), 1))
                 .stroke(
                     AngularGradient(
-                        colors: [SleepTheme.blue, SleepTheme.purple, Color(hex: "#D59CFF")],
+                        colors: [SleepTheme.violet, SleepTheme.blue, SleepTheme.purple],
                         center: .center
                     ),
                     style: StrokeStyle(lineWidth: 14, lineCap: .round)
@@ -219,9 +219,9 @@ struct SleepSurface<Content: View>: View {
         content()
             .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(SleepTheme.surface, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .background(SleepTheme.surface, in: RoundedRectangle(cornerRadius: NoopMetrics.cardRadius, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                RoundedRectangle(cornerRadius: NoopMetrics.cardRadius, style: .continuous)
                     .stroke(SleepTheme.border, lineWidth: 1)
             )
     }

@@ -2,14 +2,14 @@ import SwiftUI
 import StrandDesign
 
 enum RecoveryTheme {
-    static let background = Color(hex: "#04120E")
-    static let surface = Color(hex: "#0B211A")
-    static let surfaceRaised = Color(hex: "#123027")
-    static let border = Color(hex: "#21483B")
-    static let green = Color(hex: "#21E58B")
-    static let emerald = Color(hex: "#0BBE72")
-    static let mint = Color(hex: "#8DFFD0")
-    static let textSecondary = Color(hex: "#9AB8AD")
+    static let background = StrandPalette.surfaceBase
+    static let surface = StrandPalette.surfaceRaised
+    static let surfaceRaised = StrandPalette.surfaceOverlay
+    static let border = StrandPalette.hairline
+    static let green = StrandPalette.chargeColor
+    static let emerald = StrandPalette.chargeDeep
+    static let mint = StrandPalette.chargeBright
+    static let textSecondary = StrandPalette.textSecondary
 }
 
 struct RecoveryHeroRing: View {
@@ -162,9 +162,9 @@ struct RecoverySurface<Content: View>: View {
         content()
             .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(RecoveryTheme.surface, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .background(RecoveryTheme.surface, in: RoundedRectangle(cornerRadius: NoopMetrics.cardRadius, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                RoundedRectangle(cornerRadius: NoopMetrics.cardRadius, style: .continuous)
                     .stroke(RecoveryTheme.border, lineWidth: 1)
             )
     }

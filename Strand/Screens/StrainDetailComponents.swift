@@ -2,20 +2,20 @@ import SwiftUI
 import StrandDesign
 
 enum StrainTheme {
-    static let background = Color(hex: "#150A05")
-    static let surface = Color(hex: "#27130B")
-    static let surfaceRaised = Color(hex: "#351B10")
-    static let border = Color(hex: "#57301D")
-    static let orange = Color(hex: "#FF7A28")
-    static let amber = Color(hex: "#FFAA45")
-    static let cream = Color(hex: "#FFD3A3")
-    static let textSecondary = Color(hex: "#C1A28F")
+    static let background = StrandPalette.surfaceBase
+    static let surface = StrandPalette.surfaceRaised
+    static let surfaceRaised = StrandPalette.surfaceOverlay
+    static let border = StrandPalette.hairline
+    static let orange = StrandPalette.effortColor
+    static let amber = StrandPalette.effortBright
+    static let cream = StrandPalette.statusWarning
+    static let textSecondary = StrandPalette.textSecondary
     static let zones = [
-        Color(hex: "#85512E"),
-        Color(hex: "#B65E26"),
-        Color(hex: "#E66F23"),
-        Color(hex: "#FF8A27"),
-        Color(hex: "#FFB14A")
+        StrandPalette.zone1,
+        StrandPalette.zone2,
+        StrandPalette.zone3,
+        StrandPalette.zone4,
+        StrandPalette.zone5
     ]
 }
 
@@ -239,11 +239,10 @@ struct StrainSurface<Content: View>: View {
         content()
             .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(StrainTheme.surface, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .background(StrainTheme.surface, in: RoundedRectangle(cornerRadius: NoopMetrics.cardRadius, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                RoundedRectangle(cornerRadius: NoopMetrics.cardRadius, style: .continuous)
                     .stroke(StrainTheme.border, lineWidth: 1)
             )
     }
 }
-

@@ -1,23 +1,21 @@
 import SwiftUI
 
-// MARK: - BrandMark — the NOOP logo mark (Titanium & Gold)
+// MARK: - BrandMark — the NOOP logo mark
 //
 // The app's identity glyph, rendered natively for use as a hero on onboarding,
 // "about", and empty states. Per the design handoff ("Engraved" app-icon
 // direction + the brand glyph spec):
 //
-//   • a circular DEEP-NAVY tile (Circle filled with the navy ramp, a faint top
+//   • a circular charcoal tile (Circle filled with the surface ramp, a faint top
 //     sheen, and a 1px hairline rim), over which sits
-//   • an OPEN GOLD recovery ring — an ~80% arc starting at 12 o'clock (-90°) and
-//     sweeping clockwise, stroked with the gold ramp and round-capped (a THICK
+//   • an open accent ring — an ~80% arc starting at 12 o'clock (-90°) and
+//     sweeping clockwise, stroked with the accent ramp and round-capped (a thick
 //     stroke to match the app icon), and
-//   • a solid GOLD CORE DOT centred ("on-device core").
-//
-// Gold-on-navy, matching the app icon (Aaron's brand direction, 2026-06-15).
+//   • a solid accent core dot centred ("on-device core").
 //
 // It reads as the "O" in NOOP and as a small echo of the hero recovery ring.
 // CLEAN and flat by design: no bloom, no shadow, no glow — the titanium does the
-// depth via its gradient + sheen, the gold ring does the accent. Everything is
+// depth via its gradient + sheen, the ring does the accent. Everything is
 // driven off a single `size`, so the mark stays crisp from a 28pt list avatar up
 // to a 120pt onboarding hero.
 
@@ -38,7 +36,7 @@ public struct BrandMark: View {
 
     // Proportions derived from `size` so the mark is resolution-independent.
     private var ringInset: CGFloat { size * 0.20 }          // tile edge → ring band
-    private var ringWidth: CGFloat { size * 0.13 }          // THICK gold stroke (matches the icon)
+    private var ringWidth: CGFloat { size * 0.13 }
     private var ringDiameter: CGFloat { size - ringInset * 2 }
     private var coreDiameter: CGFloat { size * 0.18 }       // centre core dot
     private var rimWidth: CGFloat { max(1, size * 0.008) }  // ~1px hairline rim
@@ -46,7 +44,7 @@ public struct BrandMark: View {
     public var body: some View {
         ZStack {
             navyTile
-            goldRing
+            accentRing
             coreDot
         }
         .frame(width: size, height: size)
@@ -55,16 +53,14 @@ public struct BrandMark: View {
         .accessibilityAddTraits(.isImage)
     }
 
-    // MARK: Deep-navy tile
+    // MARK: Charcoal tile
 
-    /// The navy disc the gold mark sits on — a deep-navy vertical ramp (lifted at
-    /// the top, deeper at the bottom) with a faint cool top sheen and a soft
-    /// hairline rim, matching the app icon. No shadow — flat and clean.
+    /// The charcoal disc the accent mark sits on.
     private var navyTile: some View {
         Circle()
             .fill(
                 LinearGradient(
-                    colors: [Color(hex: "#0A1322"), Color(hex: "#05080F")],
+                    colors: [StrandPalette.surfaceOverlay, StrandPalette.surfaceBase],
                     startPoint: .top,
                     endPoint: .bottom
                 )
@@ -74,7 +70,7 @@ public struct BrandMark: View {
                 Circle()
                     .fill(
                         LinearGradient(
-                            colors: [Color(hex: "#17263E").opacity(0.55), .clear],
+                            colors: [StrandPalette.accent.opacity(0.16), .clear],
                             startPoint: .top,
                             endPoint: .center
                         )
@@ -82,18 +78,15 @@ public struct BrandMark: View {
                     .blendMode(.plusLighter)
                     .opacity(0.6)
             )
-            // 1px hairline rim so the disc reads cleanly on the navy canvas.
             .overlay(
                 Circle().strokeBorder(StrandPalette.hairline, lineWidth: rimWidth)
             )
     }
 
-    // MARK: Open gold recovery ring
+    // MARK: Open accent recovery ring
 
-    /// The open ~80% gold arc — round-capped, stroked with the gold ramp via an
-    /// AngularGradient so the metal shifts along the sweep (light → gold → deep),
-    /// matching how the hero recovery ring fills.
-    private var goldRing: some View {
+    /// The open ~80% accent arc.
+    private var accentRing: some View {
         RecoveryArc(
             startAngle: startAngle,
             spanDegrees: 360 * openFraction,
@@ -112,10 +105,9 @@ public struct BrandMark: View {
         .frame(width: ringDiameter, height: ringDiameter)
     }
 
-    // MARK: Solid gold core
+    // MARK: Solid accent core
 
-    /// The "on-device core" — a solid gold dot at the exact centre, completing the
-    /// open-ring + core-dot lock-up.
+    /// The "on-device core" dot at the exact centre.
     private var coreDot: some View {
         Circle()
             .fill(StrandPalette.gold)

@@ -32,7 +32,7 @@ struct TodayDashboardView: View {
                 stressEnergy
                 biomarkers
             }
-            .padding(.horizontal, 20)
+            .padding(.horizontal, NoopMetrics.screenPadding)
             .padding(.vertical, 18)
             .frame(maxWidth: 1120)
             .frame(maxWidth: .infinity)
@@ -84,7 +84,7 @@ struct TodayDashboardView: View {
     }
 
     private var primaryMetrics: some View {
-        StrandCard(padding: 14, cornerRadius: 18) {
+        StrandCard(padding: 14, cornerRadius: NoopMetrics.cardRadius) {
             HStack(alignment: .top, spacing: 8) {
                 Button { showingSleepDetail = true } label: {
                     sleepCard

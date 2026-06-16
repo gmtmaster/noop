@@ -3,9 +3,7 @@ import SwiftUI
 // MARK: - Hypnogram (§9.4 Sleep)
 //
 // A sleep-stage horizontal banded timeline. Each interval is drawn as a band at
-// the height of its stage (awake top → deep bottom), colored per §9.1 with the
-// Titanium & Gold sleep tokens — awake pale slate, light blue (#4A90E2), deep
-// blue (#2F6FCB), REM bright blue (#6FA8E8) — so the four stages stay clearly
+// the height of its stage (awake top → deep bottom). Shared sleep tokens keep the four stages clearly
 // distinguishable (fixes #345). Adjacent intervals are connected by vertical
 // risers so the trace reads as one continuous "staircase".
 

@@ -3,8 +3,7 @@ import SwiftUI
 // MARK: - Recovery Ring (§9.3) — THE signature component
 //
 // A 240° open gauge arc (gap at the bottom), thick rounded-cap stroke filled
-// with an AngularGradient sampling the recovery gradient (Titanium & Gold: the
-// `goldGradient` ramp via `recoveryStops`), filled to score/100 of the 240° span
+// with an AngularGradient sampling the recovery gradient, filled to score/100 of the 240° span
 // over a faint `surfaceInset` track. A soft outer BLOOM whose intensity scales with
 // score; a luminous leading bead at the fill tip; a draw-in animation when the value
 // changes. Center shows the big Helvetica-700 number (no %), a state word tinted to
@@ -24,7 +23,7 @@ public struct RecoveryRing: View {
     public var supporting: String?
     /// Diameter of the ring.
     public var diameter: CGFloat
-    /// Stroke thickness — hero 13–14pt per the Titanium & Gold spec (§4).
+    /// Stroke thickness for the hero ring.
     public var lineWidth: CGFloat
     /// Whether to show the center read-out (number + state + supporting).
     public var showsLabel: Bool
@@ -86,7 +85,7 @@ public struct RecoveryRing: View {
                 animatedFraction: animatedFraction,
                 bloomActive: bloomPulse
             )
-            // Brand layers over the shared gauge: the solid gold CORE DOT (so the
+            // Brand layers over the shared gauge: the solid accent core dot (so the
             // open-ring + core-dot lock-up reads), then the micro "NOOP" wordmark
             // sitting just ABOVE the centre number.
             coreDot

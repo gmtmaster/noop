@@ -41,7 +41,7 @@ struct SleepDetailView: View {
                     SleepScheduleCard()
                     trends
                 }
-                .padding(.horizontal, 20)
+                .padding(.horizontal, NoopMetrics.screenPadding)
                 .padding(.bottom, 32)
                 .frame(maxWidth: 760)
                 .frame(maxWidth: .infinity)

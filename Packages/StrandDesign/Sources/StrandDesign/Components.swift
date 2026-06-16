@@ -2,15 +2,14 @@ import SwiftUI
 
 // MARK: - The locked component system
 //
-// Every screen composes ONLY these. Fixed dimensions + one spacing scale guarantee
-// the uniform, instrument-grade look from the reference. Do not invent ad-hoc cards.
+// Shared layout primitives for the Goose-dark Noop skin.
 
 public enum NoopMetrics {
-    public static let cardRadius: CGFloat = 18   // Bevel continuous radius (18–22pt)
+    public static let cardRadius: CGFloat = 16
     public static let cardPadding: CGFloat = 16
     public static let gap: CGFloat = 12          // gap between cards
     public static let sectionGap: CGFloat = 28   // gap between sections
-    public static let screenPadding: CGFloat = 24
+    public static let screenPadding: CGFloat = 16
     public static let tileHeight: CGFloat = 108  // every metric tile is this tall
     public static let chartHeight: CGFloat = 220
     public static let hypnogramBandMinThickness: CGFloat = 14  // floor so short stages read as bars, not ticks
@@ -36,9 +35,8 @@ public extension View {
 
 // MARK: - Surface
 
-/// The one card surface — now the Bevel frosted card. PUBLIC API is unchanged
-/// (padding + content); an optional `tint` was ADDED (defaulted) so callers can opt
-/// into a per-domain accent wash without breaking existing call sites.
+/// The one card surface. PUBLIC API is unchanged; optional `tint` adds a faint
+/// semantic wash without changing call sites.
 public struct NoopCard<Content: View>: View {
     private let padding: CGFloat
     private let tint: Color?
@@ -53,19 +51,12 @@ public struct NoopCard<Content: View>: View {
         content()
             .padding(padding)
             .frame(maxWidth: .infinity, alignment: .leading)
-            // Hover chrome (fill + border + shadow) lives in the background so its animation is
-            // scoped to the card surface ONLY. It must never animate the content() subtree, or a
-            // chart inside re-animates its line every time the cursor crosses the card. (#104)
             .background { cardSurface }
         #if os(macOS)
             .onHover { hover = $0 }
         #endif
     }
 
-    // Touch can't hover, so iOS renders only the static resting frosted surface — no
-    // hover @State, no .onHover tracking, no .animation node. That trims the modifier
-    // count on every card, which multiplies across long scrolling lists. macOS adds the
-    // hover emphasis border on top (with the #104 animation scoping) unchanged.
     @ViewBuilder private var cardSurface: some View {
         let shape = RoundedRectangle(cornerRadius: NoopMetrics.cardRadius, style: .continuous)
         #if os(macOS)
@@ -121,8 +112,6 @@ public struct StatTile: View {
     }
 
     public var body: some View {
-        // The tile borrows its accent as a faint card wash, so each metric tile reads as
-        // part of its colour world while staying legible on the deep blue-black.
         NoopCard(padding: 14, tint: accent) {
             VStack(alignment: .leading, spacing: 0) {
                 Text(label).strandOverline()
@@ -248,10 +237,6 @@ public struct InsightCard: View {
         self.category = category; self.status = status; self.detail = detail; self.statusColor = statusColor; self.tint = tint
     }
     public var body: some View {
-        // Defaults the card wash to the status colour so the coaching card sits in the
-        // same colour world as the score it summarises (e.g. gold for Charge). The
-        // insight card reads a touch stronger than a tile: an explicit hue wash
-        // (.14 → .04) + a matching .22 hue border on top of the frosted surface.
         let hue = tint ?? statusColor
         let shape = RoundedRectangle(cornerRadius: NoopMetrics.cardRadius, style: .continuous)
         return NoopCard(padding: 18, tint: hue) {
@@ -265,12 +250,12 @@ public struct InsightCard: View {
         .background(
             shape.fill(
                 LinearGradient(
-                    colors: [hue.opacity(0.14), hue.opacity(0.04)],
+                    colors: [hue.opacity(0.10), hue.opacity(0.03)],
                     startPoint: .topLeading, endPoint: .bottomTrailing
                 )
             )
         )
-        .overlay(shape.strokeBorder(hue.opacity(0.22), lineWidth: 1))
+        .overlay(shape.strokeBorder(hue.opacity(0.18), lineWidth: 1))
     }
 }
 
@@ -294,15 +279,13 @@ public struct SegmentedPillControl<T: Hashable>: View {
                 } label: {
                     Text(label(item))
                         .font(StrandFont.captionNumber)
-                        // Active segment = gold-gradient pill + dark gold-deep ink; inactive
-                        // = tertiary text on the bare inset track.
                         .foregroundStyle(sel ? StrandPalette.goldDeepText : StrandPalette.textTertiary)
                         .frame(minWidth: 32)
                         .padding(.vertical, 6).padding(.horizontal, 11)
                         .background(
                             Capsule(style: .continuous)
                                 .fill(sel ? AnyShapeStyle(LinearGradient(gradient: StrandPalette.goldGradient, startPoint: .top, endPoint: .bottom)) : AnyShapeStyle(Color.clear))
-                                .shadow(color: sel ? StrandPalette.gold.opacity(0.4) : .clear, radius: sel ? 6 : 0, y: 1)
+                                .shadow(color: sel ? StrandPalette.gold.opacity(0.22) : .clear, radius: sel ? 4 : 0, y: 1)
                         )
                         // On iOS guarantee the ≥44pt touch target (height only — width is
                         // already ≥54pt) without bloating the denser Mac control, then make
@@ -372,13 +355,12 @@ public extension View {
     }
 }
 
-// MARK: - Buttons (Titanium & Gold) — ADDED additively, no existing API touched.
+// MARK: - Buttons
 //
-// Three house button styles for primary actions, secondary chrome and ghost/gold
-// CTAs. Drop in via `.buttonStyle(.noopPrimary)` etc. on any `Button`. All read off
-// the new gold tokens so they match Apple ⇄ Android. Pressed = subtle dim + scale.
+// Three house button styles for primary actions, secondary chrome and ghost CTAs.
+// They keep the existing public API but now use the Goose blue/teal accent family.
 
-/// Primary call-to-action: gold-gradient fill, dark gold-deep ink (700), rounded 13.
+/// Primary call-to-action: accent-gradient fill, dark ink, rounded 13.
 public struct NoopPrimaryButtonStyle: ButtonStyle {
     public init() {}
     public func makeBody(configuration: Configuration) -> some View {
@@ -392,8 +374,7 @@ public struct NoopPrimaryButtonStyle: ButtonStyle {
                 RoundedRectangle(cornerRadius: 13, style: .continuous)
                     .fill(LinearGradient(gradient: StrandPalette.goldGradient, startPoint: .topLeading, endPoint: .bottomTrailing))
             )
-            // The signature gold cast-shadow (0 10px 22px -8px gold@.6).
-            .shadow(color: StrandPalette.gold.opacity(pressed ? 0.25 : 0.6), radius: 14, x: 0, y: 8)
+            .shadow(color: StrandPalette.gold.opacity(pressed ? 0.14 : 0.28), radius: 8, x: 0, y: 4)
             .opacity(pressed ? 0.9 : 1)
             .scaleEffect(pressed ? 0.98 : 1)
             .animation(StrandMotion.interactive, value: pressed)
@@ -401,7 +382,7 @@ public struct NoopPrimaryButtonStyle: ButtonStyle {
     }
 }
 
-/// Secondary: inset well + 1px white-12 border + primary text. Quieter than gold.
+/// Secondary: inset well + subtle border + primary text.
 public struct NoopSecondaryButtonStyle: ButtonStyle {
     public init() {}
     public func makeBody(configuration: Configuration) -> some View {
@@ -421,7 +402,7 @@ public struct NoopSecondaryButtonStyle: ButtonStyle {
     }
 }
 
-/// Ghost / gold: transparent + 1px gold@.3 hairline + gold text. Tertiary CTA.
+/// Ghost: transparent + accent hairline + accent text.
 public struct NoopGhostButtonStyle: ButtonStyle {
     public init() {}
     public func makeBody(configuration: Configuration) -> some View {
@@ -441,7 +422,7 @@ public struct NoopGhostButtonStyle: ButtonStyle {
 }
 
 public extension ButtonStyle where Self == NoopPrimaryButtonStyle {
-    /// Gold-gradient primary CTA.
+    /// Accent-gradient primary CTA.
     static var noopPrimary: NoopPrimaryButtonStyle { .init() }
 }
 public extension ButtonStyle where Self == NoopSecondaryButtonStyle {
@@ -449,15 +430,13 @@ public extension ButtonStyle where Self == NoopSecondaryButtonStyle {
     static var noopSecondary: NoopSecondaryButtonStyle { .init() }
 }
 public extension ButtonStyle where Self == NoopGhostButtonStyle {
-    /// Transparent gold-outline ghost button.
+    /// Transparent accent-outline ghost button.
     static var noopGhost: NoopGhostButtonStyle { .init() }
 }
 
 // MARK: - Score state pill (SOLID / BUILDING / CALIBRATING / LIVE)
 //
-// ADDED additively — the existing `StatePill` (tone-based, in StatePill.swift) is
-// untouched. This is the score-lifecycle chip the new design calls for: SOLID = gold
-// fill, BUILDING = blue, CALIBRATING = slate, LIVE = gold dot with a pulsing halo.
+// Existing API, Goose-dark values.
 
 public enum ScoreState: Sendable {
     case solid        // a settled, trustworthy score
@@ -465,12 +444,12 @@ public enum ScoreState: Sendable {
     case calibrating  // baseline still forming
     case live         // streaming right now
 
-    /// The chip's hue, drawn from the re-pointed palette (gold / blue / slate).
+    /// The chip's hue, drawn from the semantic palette.
     public var color: Color {
         switch self {
-        case .solid, .live: return StrandPalette.gold
-        case .building:     return StrandPalette.sleepLight   // #4A90E2 blue
-        case .calibrating:  return StrandPalette.textTertiary // #8A94A4 slate
+        case .solid, .live: return StrandPalette.chargeColor
+        case .building:     return StrandPalette.sleepLight
+        case .calibrating:  return StrandPalette.textTertiary
         }
     }
     public var label: LocalizedStringKey {

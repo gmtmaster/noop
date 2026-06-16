@@ -5,8 +5,7 @@ import Charts
 //
 // A line/area chart whose line is gradient-stroked by value — reusable for
 // recovery / HRV / RHR / strain trends. The gradient defaults to the recovery
-// scale (so a recovery-over-time line travels deep-gold → pale-gold by daily
-// score), but any gradient + value-range can be supplied — pass the blue sleep
+// scale, but any gradient + value-range can be supplied — pass the sleep
 // ramp for sleep, the teal HRV scale for HRV, the amber strain ramp for strain.
 
 /// One point on a trend line.
