@@ -13,21 +13,34 @@ struct TodayDashboardSnapshot {
     let respiratoryRate: Double?
     let skinTemperatureDeviation: Double?
     let spo2: Double?
+    let stress: Double?
     let energy: Double?
     let battery: Double?
     let lastSync: TimeInterval?
+    let strainScaleMax: Double
 
-    init(today: DailyMetric?, liveHeartRate: Int?, battery: Double?, lastSync: TimeInterval?) {
+    init(
+        today: DailyMetric?,
+        liveHeartRate: Int?,
+        liveStrain: Double?,
+        stress: Double?,
+        effortScale: EffortScale,
+        battery: Double?,
+        lastSync: TimeInterval?
+    ) {
         recovery = today?.recovery
         sleepMinutes = today?.totalSleepMin
-        // NOOP stores Effort on a 0-100 scale. This dashboard presents the familiar 0-21 scale.
-        strain = today?.strain.map { min(max($0, 0), 100) * 21 / 100 }
+        // NOOP stores Effort on a 0-100 scale. Keep that source of truth and convert only for display.
+        let effort = liveStrain ?? today?.strain
+        strain = effort.map { UnitFormatter.effortValue(min(max($0, 0), 100), scale: effortScale) }
+        strainScaleMax = effortScale == .whoop ? 21 : 100
         self.liveHeartRate = liveHeartRate
         restingHeartRate = today?.restingHr
         hrv = today?.avgHrv
         respiratoryRate = today?.respRateBpm
         skinTemperatureDeviation = today?.skinTempDevC
         spo2 = today?.spo2Pct
+        self.stress = stress
         energy = today?.activeKcalEst
         self.battery = battery
         self.lastSync = lastSync
@@ -45,6 +58,10 @@ struct TodayDashboardSnapshot {
 
     var strainText: String {
         strain.map { String(format: "%.1f", $0) } ?? "--"
+    }
+
+    var stressText: String {
+        stress.map { String(format: "%.1f", $0) } ?? "--"
     }
 
     var insightTitle: String {

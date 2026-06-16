@@ -1,14 +1,22 @@
 import SwiftUI
 import StrandDesign
+import StrandAnalytics
 
 struct TodayDashboardView: View {
     @EnvironmentObject private var model: AppModel
     @EnvironmentObject private var repo: Repository
     @EnvironmentObject private var live: LiveState
+    @EnvironmentObject private var profile: ProfileStore
     @AppStorage("profile.firstName") private var firstName = "Adam"
+    @AppStorage(UnitPrefs.effortScaleKey) private var effortScaleRaw = EffortScale.hundred.rawValue
     @State private var showingSleepDetail = false
     @State private var showingRecoveryDetail = false
     @State private var showingStrainDetail = false
+    @State private var hrPoints: [TrendPoint] = []
+    @State private var liveTodayStrain: Double?
+    @State private var stressScore: Double?
+
+    private var effortScale: EffortScale { UnitPrefs.resolveEffortScale(effortScaleRaw) }
 
     private let biomarkerGrid = [
         GridItem(.adaptive(minimum: 150, maximum: 260), spacing: 10)
@@ -18,6 +26,9 @@ struct TodayDashboardView: View {
         TodayDashboardSnapshot(
             today: repo.today,
             liveHeartRate: model.bpm ?? live.heartRate,
+            liveStrain: liveTodayStrain,
+            stress: stressScore,
+            effortScale: effortScale,
             battery: live.batteryPct,
             lastSync: live.lastSyncedAt
         )
@@ -29,6 +40,7 @@ struct TodayDashboardView: View {
                 greeting
                 primaryMetrics
                 insight
+                heartRateTrend
                 stressEnergy
                 biomarkers
             }
@@ -38,7 +50,11 @@ struct TodayDashboardView: View {
             .frame(maxWidth: .infinity)
         }
         .background(background)
-        .task { await repo.refresh() }
+        .task {
+            await repo.refresh()
+            await loadDashboardData()
+        }
+        .task(id: repo.refreshSeq) { await loadDashboardData() }
 #if os(macOS)
         .sheet(isPresented: $showingSleepDetail) {
             SleepDetailView()
@@ -115,7 +131,7 @@ struct TodayDashboardView: View {
             progress: snapshot.recovery.map { $0 / 100 },
             tint: snapshot.recovery.map(StrandPalette.recoveryColor) ?? StrandPalette.textTertiary,
             systemImage: "heart.fill",
-            caption: "readiness"
+            caption: snapshot.recovery == nil ? "Calibrating" : "readiness"
         )
     }
 
@@ -126,7 +142,7 @@ struct TodayDashboardView: View {
             progress: snapshot.sleepMinutes.map { min($0 / (8 * 60), 1) },
             tint: StrandPalette.sleepREM,
             systemImage: "moon.stars.fill",
-            caption: "last night"
+            caption: snapshot.sleepMinutes == nil ? "No sleep yet" : "last night"
         )
     }
 
@@ -134,10 +150,10 @@ struct TodayDashboardView: View {
         MetricRingCard(
             title: "Strain",
             value: snapshot.strainText,
-            progress: snapshot.strain.map { $0 / 21 },
-            tint: snapshot.strain.map { StrandPalette.strainColor($0 / 21 * 100) } ?? StrandPalette.textTertiary,
+            progress: snapshot.strain.map { $0 / snapshot.strainScaleMax },
+            tint: snapshot.strain.map { StrandPalette.strainColor($0 / snapshot.strainScaleMax * 100) } ?? StrandPalette.textTertiary,
             systemImage: "flame.fill",
-            caption: "today"
+            caption: snapshot.strain == nil ? "Calibrating" : "today"
         )
     }
 
@@ -149,9 +165,16 @@ struct TodayDashboardView: View {
         )
     }
 
+    private var heartRateTrend: some View {
+        TodayHeartRateTrendCard(points: hrPoints, liveHeartRate: snapshot.liveHeartRate)
+    }
+
     private var stressEnergy: some View {
-        // TODO: Bind Stress when a stable daily stress model is exposed by the core.
-        StressEnergyCard(energy: snapshot.energy.map { "\(Int($0.rounded()))" } ?? "--")
+        StressEnergyCard(
+            stress: snapshot.stressText,
+            stressDetail: snapshot.stress == nil ? "No stress score" : "of 3 today",
+            energy: snapshot.energy.map { "\(Int($0.rounded()))" } ?? "--"
+        )
     }
 
     private var biomarkers: some View {
@@ -283,6 +306,25 @@ struct TodayDashboardView: View {
         default: return "battery.100"
         }
     }
+
+    private func loadDashboardData() async {
+        let logicalDay = Repository.logicalDay(Date())
+        let dayStart = Calendar.current.startOfDay(for: logicalDay)
+        let windowStart = Int(dayStart.timeIntervalSince1970)
+        let windowEnd = Int(Date().timeIntervalSince1970)
+
+        hrPoints = await repo.hrBuckets(from: windowStart, to: windowEnd, bucketSeconds: 300)
+            .map { TrendPoint(date: Date(timeIntervalSince1970: TimeInterval($0.ts)), value: $0.bpm) }
+
+        let todayHr = await repo.hrSamples(from: windowStart, to: windowEnd)
+        let maxHR = profile.age > 0 ? StrainScorer.tanakaHRmax(age: Double(profile.age)) : nil
+        let restHR = repo.today?.restingHr.map(Double.init) ?? StrainScorer.defaultRestingHR
+        liveTodayStrain = StrainScorer.strain(todayHr, maxHR: maxHR, restingHR: restHR, sex: profile.sex)
+
+        let todayKey = repo.today?.day ?? Repository.localDayKey(logicalDay)
+        let stressSeries = await repo.series(key: "stress", source: "my-whoop")
+        stressScore = Dictionary(stressSeries.map { ($0.day, $0.value) }, uniquingKeysWith: { _, last in last })[todayKey]
+    }
 }
 
 #if DEBUG
@@ -292,6 +334,7 @@ struct TodayDashboardView: View {
         .environmentObject(model)
         .environmentObject(model.repo)
         .environmentObject(model.live)
+        .environmentObject(model.profile)
         .frame(width: 1100, height: 850)
         .preferredColorScheme(.dark)
 }

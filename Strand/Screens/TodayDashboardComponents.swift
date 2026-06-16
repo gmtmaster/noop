@@ -90,6 +90,8 @@ struct CompactInsightCard: View {
 }
 
 struct StressEnergyCard: View {
+    let stress: String
+    let stressDetail: String
     let energy: String
 
     var body: some View {
@@ -97,11 +99,10 @@ struct StressEnergyCard: View {
             HStack(spacing: 0) {
                 summary(
                     title: "Stress",
-                    value: "Coming soon",
-                    detail: "Daily level",
+                    value: stress,
+                    detail: stressDetail,
                     systemImage: "waveform.path.ecg",
-                    tint: StrandPalette.metricAmber,
-                    isPlaceholder: true
+                    tint: StrandPalette.metricAmber
                 )
                 Divider()
                     .overlay(StrandPalette.hairline)
@@ -145,6 +146,91 @@ struct StressEnergyCard: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
+}
+
+struct TodayHeartRateTrendCard: View {
+    let points: [TrendPoint]
+    let liveHeartRate: Int?
+
+    private var values: [Double] { points.map(\.value) }
+
+    var body: some View {
+        StrandCard(padding: 14, cornerRadius: 16) {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(alignment: .firstTextBaseline) {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("HEART RATE").strandOverline()
+                        Text("5-minute average · since midnight")
+                            .font(StrandFont.subhead)
+                            .foregroundStyle(StrandPalette.textSecondary)
+                    }
+                    Spacer(minLength: 12)
+                    if let current = currentHeartRate {
+                        Text("\(current) bpm")
+                            .font(StrandFont.number(24))
+                            .foregroundStyle(StrandPalette.metricRose)
+                            .monospacedDigit()
+                    }
+                }
+
+                if points.count > 1 {
+                    TrendChart(
+                        points: points,
+                        gradient: Gradient(colors: [StrandPalette.metricRose.opacity(0.45), StrandPalette.metricRose]),
+                        valueRange: valueRange,
+                        showsArea: true,
+                        height: NoopMetrics.chartHeight,
+                        valueFormat: { "\(Int($0.rounded())) bpm" },
+                        dateFormat: { Self.timeFormatter.string(from: $0) },
+                        accessibilityLabel: "Heart rate today",
+                        nowCapColor: StrandPalette.metricRose
+                    )
+                    ChartFooter([
+                        ("Min", statText(values.min())),
+                        ("Avg", statText(average)),
+                        ("Max", statText(values.max())),
+                    ])
+                } else {
+                    VStack(spacing: 8) {
+                        Image(systemName: "heart")
+                            .font(.system(size: 22, weight: .semibold))
+                            .foregroundStyle(StrandPalette.metricRose.opacity(0.8))
+                        Text("No heart-rate samples yet today")
+                            .font(StrandFont.subhead)
+                            .foregroundStyle(StrandPalette.textSecondary)
+                    }
+                    .frame(maxWidth: .infinity, minHeight: NoopMetrics.chartHeight)
+                    .background(StrandPalette.surfaceRaised.opacity(0.55), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                }
+            }
+        }
+    }
+
+    private var currentHeartRate: Int? {
+        liveHeartRate ?? points.last.map { Int($0.value.rounded()) }
+    }
+
+    private var average: Double? {
+        guard !values.isEmpty else { return nil }
+        return values.reduce(0, +) / Double(values.count)
+    }
+
+    private var valueRange: ClosedRange<Double> {
+        guard let min = values.min(), let max = values.max() else { return 40...120 }
+        guard max > min else { return (min - 5)...(max + 5) }
+        let padding = (max - min) * 0.12
+        return (min - padding)...(max + padding)
+    }
+
+    private func statText(_ value: Double?) -> String {
+        value.map { "\(Int($0.rounded()))" } ?? "--"
+    }
+
+    private static let timeFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm"
+        return formatter
+    }()
 }
 
 struct BiomarkerCard: View {
