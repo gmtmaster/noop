@@ -56,6 +56,10 @@ final class TimescaleSyncSettingsStore: ObservableObject {
         tokenStored || !tokenDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
+    var tokenValidationMessage: String? {
+        hasTokenForAction ? nil : "Paste and save a bearer token."
+    }
+
     var serverURLValidationMessage: String? {
         TimescaleSyncURL.validationMessage(for: profile.serverURL)
     }
@@ -64,8 +68,18 @@ final class TimescaleSyncSettingsStore: ObservableObject {
         serverURLValidationMessage == nil
     }
 
+    var userIDValidationMessage: String? {
+        let trimmed = profile.userID.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return "Enter a user UUID before syncing." }
+        return UUID(uuidString: trimmed) == nil ? "User ID must be a valid UUID." : nil
+    }
+
     var hasValidUserID: Bool {
-        UUID(uuidString: profile.userID.trimmingCharacters(in: .whitespacesAndNewlines)) != nil
+        userIDValidationMessage == nil
+    }
+
+    var deviceIDValidationMessage: String? {
+        hasDeviceID ? nil : "Enter a device ID before syncing."
     }
 
     var hasDeviceID: Bool {
@@ -81,18 +95,27 @@ final class TimescaleSyncSettingsStore: ObservableObject {
     }
 
     var validationMessages: [String] {
+        syncValidationMessages
+    }
+
+    var testValidationMessages: [String] {
         var messages: [String] = []
         if let serverURLValidationMessage {
             messages.append(serverURLValidationMessage)
         }
-        if !hasTokenForAction {
-            messages.append("Paste and save a bearer token.")
+        if let tokenValidationMessage {
+            messages.append(tokenValidationMessage)
         }
-        if !hasValidUserID {
-            messages.append("Enter a valid user UUID before syncing.")
+        return messages
+    }
+
+    var syncValidationMessages: [String] {
+        var messages = testValidationMessages
+        if let userIDValidationMessage {
+            messages.append(userIDValidationMessage)
         }
-        if !hasDeviceID {
-            messages.append("Enter a device ID before syncing.")
+        if let deviceIDValidationMessage {
+            messages.append(deviceIDValidationMessage)
         }
         return messages
     }
@@ -100,13 +123,13 @@ final class TimescaleSyncSettingsStore: ObservableObject {
     var testDisabledReason: String? {
         guard !canTestConnection else { return nil }
         if let serverURLValidationMessage { return serverURLValidationMessage }
-        if !hasTokenForAction { return "Test needs a bearer token." }
+        if let tokenValidationMessage { return tokenValidationMessage }
         return nil
     }
 
     var syncDisabledReason: String? {
         guard !canSyncNow else { return nil }
-        return validationMessages.first
+        return syncValidationMessages.first
     }
 
     @discardableResult

@@ -1,0 +1,29 @@
+services:
+  db:
+    image: timescale/timescaledb:latest-pg16
+    container_name: noop-timescale-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-noop}
+      POSTGRES_USER: ${POSTGRES_USER:-noop}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - timescale-data:/var/lib/postgresql/data
+
+  api:
+    build:
+      context: .
+    container_name: noop-timescale-api
+    restart: unless-stopped
+    depends_on:
+      - db
+    environment:
+      NOOP_TIMESCALE_API_TOKEN: ${NOOP_TIMESCALE_API_TOKEN:-change-me-too}
+      NOOP_TIMESCALE_DATABASE_URL: postgresql://${POSTGRES_USER:-noop}:${POSTGRES_PASSWORD:-change-me}@db:5432/${POSTGRES_DB:-noop}
+    ports:
+      - "${NOOP_TIMESCALE_API_PORT:-8088}:8088"
+
+volumes:
+  timescale-data:

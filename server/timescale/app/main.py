@@ -26,6 +26,7 @@ def require_token(authorization: Annotated[str | None, Header()] = None) -> None
         )
 
 
+@app.get("/health")
 @app.get("/healthz")
 def healthz() -> dict[str, str]:
     with connection() as conn:

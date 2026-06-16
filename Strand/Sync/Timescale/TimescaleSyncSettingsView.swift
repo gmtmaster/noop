@@ -72,6 +72,9 @@ struct TimescaleSyncSettingsView: View {
     private var actionRow: some View {
         HStack(spacing: 10) {
             Button {
+                #if DEBUG
+                print("Timescale sync UI: test tapped enabled=\(settings.canTestConnection) syncing=\(manager.isSyncing)")
+                #endif
                 Task { await manager.testConnection() }
             } label: {
                 Label("Test", systemImage: "network")
@@ -79,6 +82,9 @@ struct TimescaleSyncSettingsView: View {
             .disabled(manager.isSyncing || !settings.canTestConnection)
 
             Button {
+                #if DEBUG
+                print("Timescale sync UI: sync tapped enabled=\(settings.canSyncNow) syncing=\(manager.isSyncing)")
+                #endif
                 Task { await manager.syncNow() }
             } label: {
                 Label(manager.isSyncing ? "Syncing..." : "Sync now", systemImage: "arrow.triangle.2.circlepath")
@@ -107,10 +113,26 @@ struct TimescaleSyncSettingsView: View {
 
     private var validationBlock: some View {
         VStack(alignment: .leading, spacing: 6) {
-            ForEach(Array(settings.validationMessages.enumerated()), id: \.offset) { _, message in
-                Text(message)
-                    .font(StrandFont.caption)
-                    .foregroundStyle(message == settings.serverURLValidationMessage ? StrandPalette.statusWarning : StrandPalette.textTertiary)
+            if !settings.canTestConnection {
+                Text("Test connection needs:")
+                    .font(StrandFont.captionNumber)
+                    .foregroundStyle(StrandPalette.textSecondary)
+                ForEach(Array(settings.testValidationMessages.enumerated()), id: \.offset) { _, message in
+                    Text(message)
+                        .font(StrandFont.caption)
+                        .foregroundStyle(message == settings.serverURLValidationMessage ? StrandPalette.statusWarning : StrandPalette.textTertiary)
+                }
+            }
+            if !settings.canSyncNow {
+                if !settings.canTestConnection { Divider().overlay(StrandPalette.hairline) }
+                Text("Sync now needs:")
+                    .font(StrandFont.captionNumber)
+                    .foregroundStyle(StrandPalette.textSecondary)
+                ForEach(Array(settings.syncValidationMessages.enumerated()), id: \.offset) { _, message in
+                    Text(message)
+                        .font(StrandFont.caption)
+                        .foregroundStyle(message == settings.serverURLValidationMessage ? StrandPalette.statusWarning : StrandPalette.textTertiary)
+                }
             }
         }
     }
