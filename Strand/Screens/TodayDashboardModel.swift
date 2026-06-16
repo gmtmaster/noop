@@ -5,7 +5,7 @@ import WhoopStore
 /// Keeps formatting and the WHOOP-style 0-21 strain conversion out of core models.
 struct TodayDashboardSnapshot {
     let recovery: Double?
-    let sleepMinutes: Double?
+    let rest: Double?
     let strain: Double?
     let liveHeartRate: Int?
     let restingHeartRate: Int?
@@ -21,6 +21,7 @@ struct TodayDashboardSnapshot {
 
     init(
         today: DailyMetric?,
+        rest: Double?,
         liveHeartRate: Int?,
         liveStrain: Double?,
         stress: Double?,
@@ -29,7 +30,7 @@ struct TodayDashboardSnapshot {
         lastSync: TimeInterval?
     ) {
         recovery = today?.recovery
-        sleepMinutes = today?.totalSleepMin
+        self.rest = rest
         // NOOP stores Effort on a 0-100 scale. Keep that source of truth and convert only for display.
         let effort = liveStrain ?? today?.strain
         strain = effort.map { UnitFormatter.effortValue(min(max($0, 0), 100), scale: effortScale) }
@@ -50,10 +51,8 @@ struct TodayDashboardSnapshot {
         recovery.map { "\(Int($0.rounded()))%" } ?? "--"
     }
 
-    var sleepText: String {
-        guard let sleepMinutes else { return "--" }
-        let minutes = max(0, Int(sleepMinutes.rounded()))
-        return "\(minutes / 60)h \(minutes % 60)m"
+    var restText: String {
+        rest.map { "\(Int($0.rounded()))%" } ?? "--"
     }
 
     var strainText: String {

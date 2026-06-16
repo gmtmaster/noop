@@ -14,6 +14,7 @@ struct TodayDashboardView: View {
     @State private var showingStrainDetail = false
     @State private var hrPoints: [TrendPoint] = []
     @State private var liveTodayStrain: Double?
+    @State private var restScore: Double?
     @State private var stressScore: Double?
 
     private var effortScale: EffortScale { UnitPrefs.resolveEffortScale(effortScaleRaw) }
@@ -25,6 +26,7 @@ struct TodayDashboardView: View {
     private var snapshot: TodayDashboardSnapshot {
         TodayDashboardSnapshot(
             today: repo.today,
+            rest: restScore,
             liveHeartRate: model.bpm ?? live.heartRate,
             liveStrain: liveTodayStrain,
             stress: stressScore,
@@ -138,11 +140,11 @@ struct TodayDashboardView: View {
     private var sleepCard: some View {
         MetricRingCard(
             title: "Sleep",
-            value: snapshot.sleepText,
-            progress: snapshot.sleepMinutes.map { min($0 / (8 * 60), 1) },
-            tint: StrandPalette.sleepREM,
+            value: snapshot.restText,
+            progress: snapshot.rest.map { $0 / 100 },
+            tint: snapshot.rest.map { _ in StrandPalette.restColor } ?? StrandPalette.textTertiary,
             systemImage: "moon.stars.fill",
-            caption: snapshot.sleepMinutes == nil ? "No sleep yet" : "last night"
+            caption: snapshot.rest == nil ? "Calibrating" : "rest score"
         )
     }
 
@@ -322,6 +324,8 @@ struct TodayDashboardView: View {
         liveTodayStrain = StrainScorer.strain(todayHr, maxHR: maxHR, restingHR: restHR, sex: profile.sex)
 
         let todayKey = repo.today?.day ?? Repository.localDayKey(logicalDay)
+        let restSeries = await repo.exploreSeries(key: "sleep_performance", source: "my-whoop")
+        restScore = Dictionary(restSeries.map { ($0.day, $0.value) }, uniquingKeysWith: { _, last in last })[todayKey]
         let stressSeries = await repo.series(key: "stress", source: "my-whoop")
         stressScore = Dictionary(stressSeries.map { ($0.day, $0.value) }, uniquingKeysWith: { _, last in last })[todayKey]
     }

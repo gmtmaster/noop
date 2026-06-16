@@ -211,12 +211,16 @@ struct TrendsView: View {
                 let hrv = resolve { $0.avgHrv }
                 let rhr = resolve { $0.restingHr.map(Double.init) }
                 let strain = resolve { $0.strain }
+                let sleep = resolve { $0.totalSleepMin.map { $0 / 60.0 } }
+                let respiratory = resolve { $0.respRateBpm }
+                let workouts = resolve { $0.exerciseCount.map(Double.init) }
                 VStack(alignment: .leading, spacing: NoopMetrics.sectionGap) {
                     // Week-in-review digest (#208) — self-hides when this week has no data.
                     WeeklyDigestCard()
                     rangeBar(recovery: recovery)
                     heroRecovery(recovery: recovery)
-                    smallMultiples(hrv: hrv, rhr: rhr, strain: strain)
+                    smallMultiples(hrv: hrv, rhr: rhr, strain: strain, sleep: sleep,
+                                   respiratory: respiratory, workouts: workouts)
                     yearStrip
                     exportReportRow
                 }
@@ -324,11 +328,21 @@ struct TrendsView: View {
 
     // MARK: Small multiples — HRV / Resting HR / Day Strain
 
-    private func smallMultiples(hrv: ResolvedMetric, rhr: ResolvedMetric, strain: ResolvedMetric) -> some View {
+    private func smallMultiples(
+        hrv: ResolvedMetric,
+        rhr: ResolvedMetric,
+        strain: ResolvedMetric,
+        sleep: ResolvedMetric,
+        respiratory: ResolvedMetric,
+        workouts: ResolvedMetric
+    ) -> some View {
         let cols = [GridItem(.adaptive(minimum: 320), spacing: NoopMetrics.gap)]
         let hrvPts = hrv.points
         let rhrPts = rhr.points
         let strainPts = strain.points
+        let sleepPts = sleep.points
+        let respiratoryPts = respiratory.points
+        let workoutPts = workouts.points
 
         return VStack(alignment: .leading, spacing: NoopMetrics.gap) {
             // No trailing window label — the range bar's overline already states it.
@@ -371,6 +385,39 @@ struct TrendsView: View {
                     range: valueRange(strainPts, fallback: 0...100),
                     fmt: { UnitFormatter.effortDisplay($0, scale: effortScale) }
                 )
+                metricChart(
+                    title: "Sleep duration", unit: "h",
+                    accessibilityTitle: "Sleep duration",
+                    points: sleepPts,
+                    gradient: gradient(StrandPalette.sleepREM),
+                    tip: StrandPalette.sleepREM,
+                    tint: StrandPalette.restColor,
+                    higherIsBetter: nil,
+                    range: valueRange(sleepPts, fallback: 3...10),
+                    fmt: hoursText
+                )
+                metricChart(
+                    title: "Respiratory rate", unit: "br/min",
+                    accessibilityTitle: "Respiratory rate",
+                    points: respiratoryPts,
+                    gradient: gradient(StrandPalette.metricCyan),
+                    tip: StrandPalette.metricCyan,
+                    tint: StrandPalette.chargeColor,
+                    higherIsBetter: false,
+                    range: valueRange(respiratoryPts, fallback: 10...22),
+                    fmt: { String(format: "%.1f", $0) }
+                )
+                metricChart(
+                    title: "Workouts", unit: "",
+                    accessibilityTitle: "Workout count",
+                    points: workoutPts,
+                    gradient: gradient(StrandPalette.metricAmber),
+                    tip: StrandPalette.metricAmber,
+                    tint: StrandPalette.effortColor,
+                    higherIsBetter: nil,
+                    range: valueRange(workoutPts, fallback: 0...3),
+                    fmt: { String(Int($0.rounded())) }
+                )
             }
         }
     }
@@ -391,6 +438,10 @@ struct TrendsView: View {
         fmt: @escaping (Double) -> String
     ) -> some View {
         let avg = mean(pts)
+        let formatWithUnit: (Double) -> String = { value in
+            let rendered = fmt(value)
+            return unit.isEmpty ? rendered : "\(rendered) \(unit)"
+        }
         ChartCard(
             title: title,
             subtitle: subtitle,
@@ -400,7 +451,7 @@ struct TrendsView: View {
             chart: {
                 if pts.count >= 2 {
                     glowChart(points: pts, gradient: gradient, valueRange: range,
-                              tip: tip, valueFormat: { "\(fmt($0)) \(unit)" },
+                              tip: tip, valueFormat: formatWithUnit,
                               accessibilityLabel: "\(accessibilityTitle) trend")
                 } else {
                     sparsePlaceholder
@@ -411,7 +462,7 @@ struct TrendsView: View {
                     ChartFooter([
                         // Plain "MEAN" to match the bare MIN/MAX columns; the unit moves into
                         // the value (e.g. "58 ms") so uppercasing can't render a shouty "MEAN MS".
-                        ("Mean", avg.map { "\(fmt($0)) \(unit)" } ?? "—"),
+                        ("Mean", avg.map(formatWithUnit) ?? "—"),
                         ("Min", pts.map(\.value).min().map(fmt) ?? "—"),
                         ("Max", pts.map(\.value).max().map(fmt) ?? "—"),
                     ])
@@ -467,6 +518,10 @@ struct TrendsView: View {
             .init(color: color.opacity(0.55), location: 0.0),
             .init(color: color, location: 1.0),
         ])
+    }
+
+    private func hoursText(_ value: Double) -> String {
+        String(format: "%.1f", value)
     }
 
     /// A domain-tinted `TrendChart` with a soft glow and a bright end-cap dot at the latest point —
