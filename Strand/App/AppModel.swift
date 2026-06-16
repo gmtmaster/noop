@@ -46,6 +46,8 @@ final class AppModel: ObservableObject {
 
     /// Opt-in AI coach (bring-your-own-key) — the one networked feature, off until the user enables it.
     let coach: AICoachEngine
+    /// Optional external TimescaleDB export layer. Disabled by default and read-only against local data.
+    let timescaleSync: TimescaleSyncManager
 
     /// Observable cache over the paired-device registry; `activeDeviceId` drives the source coordinator.
     /// Built lazily once the store opens (see `wireSourceCoordinator`). nil until then — with no generic
@@ -136,6 +138,7 @@ final class AppModel: ObservableObject {
         self.ble = BLEManager(state: live, deviceId: "my-whoop")
         self.repo = Repository(deviceId: "my-whoop")
         self.coach = AICoachEngine(repo: repo)
+        self.timescaleSync = TimescaleSyncManager(repo: repo, defaultDeviceID: "my-whoop")
         self.intelligence = IntelligenceEngine(repo: repo, profile: profile, deviceId: "my-whoop")
         // Smooth HR centrally so it's solid everywhere it's shown.
         live.$heartRate.sink { [weak self] _ in self?.ingestHR() }.store(in: &hrCancellables)
@@ -222,6 +225,7 @@ final class AppModel: ObservableObject {
             #endif
             await self.repo.refresh()                          // surface any imported data at once
             await self.wireSourceCoordinator()                 // dormant unless a generic strap is active
+            self.timescaleSync.startPeriodicChecks()            // opt-in Timescale export, no-op until enabled
             try? await Task.sleep(nanoseconds: 6_000_000_000)  // give the first offload a moment
             // One-shot on-upgrade Effort rescore (#313): recompute strain from source across the FULL
             // history once, so any deep-history rows an older build left on the 0–21 axis regenerate on

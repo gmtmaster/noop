@@ -101,6 +101,7 @@ struct SettingsView: View {
             appearanceCard
             #endif
             strapCard
+            timescaleSyncCard
             experimentalCard
             backupCard
             aboutCard
@@ -125,6 +126,18 @@ struct SettingsView: View {
             DiagnosticsSheet(onClose: { showDiagnostics = false })
         }
         #endif
+    }
+
+    // MARK: - Server sync
+
+    private var timescaleSyncCard: some View {
+        SettingsSection(
+            icon: "externaldrive.connected.to.line.below",
+            title: "Server Sync",
+            blurb: "Optional TimescaleDB export. NOOP keeps local storage as the source of truth and works fully offline."
+        ) {
+            TimescaleSyncSettingsView(manager: model.timescaleSync)
+        }
     }
 
     // MARK: - Profile
