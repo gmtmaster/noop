@@ -11,6 +11,15 @@ public struct HRBucket: Sendable, Equatable {
     public init(ts: Int, bpm: Double) { self.ts = ts; self.bpm = bpm }
 }
 
+public struct RRHourCount: Sendable, Equatable {
+    public let hourStart: Int
+    public let count: Int
+    public init(hourStart: Int, count: Int) {
+        self.hourStart = hourStart
+        self.count = count
+    }
+}
+
 extension WhoopStore {
     /// Shared decoder — JSONDecoder is stateless across decodes and was previously allocated once
     /// per event row. Battery events are dense (~every 8 min), so a multi-year read decodes
@@ -85,6 +94,19 @@ extension WhoopStore {
                 ORDER BY ts ASC, rrMs ASC LIMIT ?
                 """, arguments: [deviceId, from, to, limit])
                 .map { RRInterval(ts: $0["ts"], rrMs: $0["rrMs"]) }
+        }
+    }
+
+    public func rrCountsPerHour(deviceId: String, from: Int, to: Int) async throws -> [RRHourCount] {
+        try syncRead { db in
+            try Row.fetchAll(db, sql: """
+                SELECT (ts / 3600) * 3600 AS hourStart, COUNT(*) AS count
+                FROM rrInterval
+                WHERE deviceId = ? AND ts >= ? AND ts <= ?
+                GROUP BY ts / 3600
+                ORDER BY hourStart ASC
+                """, arguments: [deviceId, from, to])
+                .map { RRHourCount(hourStart: $0["hourStart"], count: $0["count"]) }
         }
     }
 

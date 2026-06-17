@@ -173,11 +173,15 @@ public final class LiveState: ObservableObject {
     public func setRRIntervals(_ intervals: [Int], recentLimit: Int = 60) {
         rr = intervals
         let valid = intervals.filter { $0 > 0 }
-        guard !valid.isEmpty else { return }
-        rrRecent.append(contentsOf: valid)
-        if rrRecent.count > recentLimit {
-            rrRecent.removeFirst(rrRecent.count - recentLimit)
+        let rejected = intervals.filter { $0 <= 0 }
+        if !valid.isEmpty {
+            rrRecent.append(contentsOf: valid)
+            if rrRecent.count > recentLimit {
+                rrRecent.removeFirst(rrRecent.count - recentLimit)
+            }
         }
+        NSLog("RR diag: LiveState.setRRIntervals rrCount=%d rrRecentCount=%d valid=%@ rejected=%@",
+              intervals.count, rrRecent.count, valid.description, rejected.description)
     }
 
     /// Blank all live biometric readouts (HR + R-R + the rolling buffer) so a stale heart rate or

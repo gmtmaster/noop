@@ -150,6 +150,10 @@ extension WhoopStore {
                     try stmt.execute(arguments: [deviceId, s.ts, s.bpm, s.conf])
                 }
             }
+            if !streams.rr.isEmpty {
+                NSLog("RR diag: WhoopStore.insert attemptedRR=%d insertedRR=%d deviceId=%@",
+                      streams.rr.count, rr, deviceId)
+            }
             return (hr, rr, ev, bat, spo2, skin, resp, grav)
         }
     }

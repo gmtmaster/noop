@@ -24,6 +24,7 @@ public enum StandardHeartRate {
                 idx += 2
             }
         }
+        NSLog("RR diag: StandardHeartRate.parse bpm=%d rrCount=%d rr=%@", hr, rr.count, rr.description)
         return (hr, rr)
     }
 }

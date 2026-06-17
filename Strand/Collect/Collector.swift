@@ -171,7 +171,11 @@ final class Collector {
     /// these carry a wall-clock `ts` directly. Auto-flushes ~every 30 readings (~30s).
     func ingestStandardHR(hr: Int, rr: [Int], at ts: Int) {
         if hr >= 30, hr <= 220 { stdHR.append(HRSample(ts: ts, bpm: hr)) }
-        for r in rr where r >= 250 && r <= 3000 { stdRR.append(RRInterval(ts: ts, rrMs: r)) }
+        let acceptedRR = rr.filter { $0 >= 250 && $0 <= 3000 }
+        let rejectedRR = rr.filter { !($0 >= 250 && $0 <= 3000) }
+        for r in acceptedRR { stdRR.append(RRInterval(ts: ts, rrMs: r)) }
+        NSLog("RR diag: Collector.ingestStandardHR ts=%d hr=%d receivedRR=%@ acceptedRR=%@ rejectedRR=%@ bufferRR=%d",
+              ts, hr, rr.description, acceptedRR.description, rejectedRR.description, stdRR.count)
         if stdHR.count + stdRR.count >= 30 {
             Task { @MainActor in await self.flushStandardHR() }
         }
@@ -184,8 +188,21 @@ final class Collector {
         stdHR.removeAll(keepingCapacity: true)
         stdRR.removeAll(keepingCapacity: true)
         do {
-            try await store.insert(Streams(hr: hr, rr: rr), deviceId: deviceId)
+            let counts = try await store.insert(Streams(hr: hr, rr: rr), deviceId: deviceId)
+            let persistedHourCount: Int
+            if let concreteStore, let latestTs = rr.last?.ts {
+                let recent = (try? await concreteStore.rrIntervals(deviceId: deviceId,
+                                                                   from: max(0, latestTs - 3600),
+                                                                   to: latestTs,
+                                                                   limit: 200_000)) ?? []
+                persistedHourCount = recent.count
+            } else {
+                persistedHourCount = 0
+            }
+            NSLog("RR diag: Collector.flushStandardHR attemptedRR=%d insertedRR=%d persistedLastHour=%d deviceId=%@",
+                  rr.count, counts.rr, persistedHourCount, deviceId)
         } catch {
+            NSLog("RR diag: Collector.flushStandardHR failed attemptedRR=%d error=%@", rr.count, String(describing: error))
             stdHR.insert(contentsOf: hr, at: 0)
             stdRR.insert(contentsOf: rr, at: 0)
         }

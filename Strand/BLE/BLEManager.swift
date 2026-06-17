@@ -350,6 +350,10 @@ public final class BLEManager: NSObject, ObservableObject {
     /// until the link is encrypted (issue #17).
     private var whoop5NotifyCharacteristics: [CBCharacteristic] = []
     private var reassembler = Reassembler()
+    /// WHOOP 5/MG can emit framed traffic concurrently on four puffin notify characteristics. Those
+    /// channels need independent fragment buffers; otherwise bytes from separate channels interleave in
+    /// one shared reassembler and history frames never reconstruct cleanly under backfill load.
+    private var whoop5Reassemblers: [String: Reassembler] = [:]
     private var seq: UInt8 = 0
     private var didBond = false
     /// WHOOP 5/MG only: realtime HR has been armed (puffin TOGGLE_REALTIME_HR sent) once for this
@@ -866,6 +870,7 @@ public final class BLEManager: NSObject, ObservableObject {
     /// flag, kick the strap with sendHistoricalData, and arm the idle timeout.
     @discardableResult
     private func beginBackfill() -> Bool {
+        log("Backfill: begin requested connected=\(state.connected) bonded=\(state.bonded) encryptedBond=\(state.encryptedBond) family=\(selectedModel.deviceFamily.rawValue) handshakeDone=\(connectHandshakeDone) backfilling=\(backfilling)")
         // Never offload before the connect handshake has run: a racing foreground/restore trigger
         // firing SEND_HISTORICAL ahead of hello/SET_CLOCK was part of the storm that stopped serving.
         guard connectHandshakeDone else {
@@ -902,6 +907,7 @@ public final class BLEManager: NSObject, ObservableObject {
         // offload (re/sync_openwhoop.py, re/diagnose_biometrics.py) uses [0x00] too. Plain offload — the
         // strap streams HISTORY_START → type-47 records → HISTORY_END (acked) … → HISTORY_COMPLETE.
         send(.sendHistoricalData, payload: [0x00], writeType: .withResponse)
+        log("Backfill: SEND_HISTORICAL_DATA sent payload=00")
         armBackfillTimeout()
         log("Backfill: session started — historical offload requested")
         return true
@@ -911,6 +917,9 @@ public final class BLEManager: NSObject, ObservableObject {
     /// synchronously (delegate order) and drained sequentially in small slices, so START /
     /// data / END chunk assembly is never reordered while the UI still gets time to paint.
     private func routeBackfillFrame(_ frame: [UInt8]) {
+        let typeByte = selectedModel.deviceFamily == .whoop5 ? BLEManager.whoop5TypeByte(frame) : (frame.count > 4 ? frame[4] : nil)
+        let typeHex = typeByte.map { String(format: "0x%02x", $0) } ?? "--"
+        log("Backfill: routeBackfillFrame called len=\(frame.count) type=\(typeHex) queueBefore=\(backfillFrameQueue.count)")
         backfillFrameQueue.append(frame)
         guard !backfillDraining else { return }
         backfillDraining = true
@@ -974,6 +983,7 @@ public final class BLEManager: NSObject, ObservableObject {
         backfillTimeout?.cancel()
         let item = DispatchWorkItem { [weak self] in
             guard let self else { return }
+            self.log("Backfill timeout fired — no offload frames for \(BLEManager.backfillIdleTimeoutSeconds)s (chunks=\(self.state.syncChunksThisSession), decoded=\(self.state.decodedChunksThisSession), console=\(self.state.consoleChunksThisSession))")
             self.backfiller?.timeoutFired()
             self.exitBackfilling(reason: "timeout")
         }
@@ -1487,6 +1497,7 @@ public final class BLEManager: NSObject, ObservableObject {
     /// sync is already running). The caller (Health screen) only enables the control while connected, so
     /// a tap is meaningful; this guard is the belt-and-braces. Mirrors the Android `WhoopBleClient.syncNow`.
     public func syncNow() {
+        log("Sync now: connected=\(state.connected) bonded=\(state.bonded) encryptedBond=\(state.encryptedBond) family=\(selectedModel.deviceFamily.rawValue)")
         guard state.connected, state.bonded else {
             log("Sync now: no strap connected — ignored.")
             return
@@ -1534,6 +1545,20 @@ public final class BLEManager: NSObject, ObservableObject {
         heartRateCharacteristic = nil
         batteryCharacteristic = nil
         whoop5NotifyCharacteristics.removeAll()
+        whoop5Reassemblers.removeAll()
+    }
+
+    private func whoop5Reassembler(for characteristic: CBCharacteristic) -> Reassembler {
+        let key = characteristic.uuid.uuidString.lowercased()
+        if let existing = whoop5Reassemblers[key] { return existing }
+        let created = Reassembler(family: .whoop5)
+        whoop5Reassemblers[key] = created
+        return created
+    }
+
+    private static func whoop5TypeByte(_ frame: [UInt8]) -> UInt8? {
+        guard frame.count > 8 else { return nil }
+        return frame[8]
     }
 
     /// Start a service-filtered scan for `model`, re-framing the inbound stream for its family (so a
@@ -1741,7 +1766,12 @@ public final class BLEManager: NSObject, ObservableObject {
         // R-R: the standard profile is the RELIABLE source (the custom REALTIME_DATA stream
         // usually reports rr_count=0), so always surface intervals when present. setRRIntervals also
         // feeds the Live console's rolling rrRecent buffer.
-        if !m.rr.isEmpty { state.setRRIntervals(m.rr) }
+        if !m.rr.isEmpty {
+            log("RR diag: received standard-profile RR intervals bpm=\(m.hr) rrCount=\(m.rr.count) rr=\(m.rr)")
+            state.setRRIntervals(m.rr)
+        } else {
+            log("RR diag: heart-rate packet contains no RR intervals bpm=\(m.hr)")
+        }
         // HR: the standard 0x2A37 profile is the RELIABLE source (BLE-standard, ~1Hz). Let it
         // drive the value whenever it's physiologically plausible; reject 0/garbage (off-wrist).
         // AppModel medians these into a stable display value. live perf: only publish on a real
@@ -2393,10 +2423,17 @@ extension BLEManager: @preconcurrency CBPeripheralDelegate {
             // timestamps are already real-unix seconds.) Live HR/battery still also come from the
             // standard 0x2A37 / 0x2A19 profiles handled above.
             if BLEManager.whoop5NotifyChars.contains(characteristic.uuid) {
-                for frame in reassembler.feed(bytes) {
-                    let isOffload = backfilling && BLEManager.isOffloadFrame(frame, family: .whoop5)
+                let frames = whoop5Reassembler(for: characteristic).feed(bytes)
+                if backfilling, frames.isEmpty {
+                    log("WHOOP5 fragment char=\(characteristic.uuid.uuidString.lowercased()) len=\(bytes.count) backfilling=true awaitingMore=true")
+                }
+                for frame in frames {
+                    let typeByte = BLEManager.whoop5TypeByte(frame)
+                    let isOffload = BLEManager.isOffloadFrame(frame, family: .whoop5)
+                    let typeHex = typeByte.map { String(format: "0x%02x", $0) } ?? "--"
+                    log("WHOOP5 frame char=\(characteristic.uuid.uuidString.lowercased()) len=\(frame.count) type=\(typeHex) backfilling=\(backfilling) isOffload=\(isOffload)")
                     noteWhoop5R22Telemetry(frame, duringOffload: isOffload)   // #174 deep-data telemetry
-                    if isOffload {
+                    if backfilling && isOffload {
                         // Same policy as WHOOP4: historical offload frames are bulk sync traffic.
                         // Keep them out of the live UI parser during backfill and let Backfiller
                         // preserve/order/process them in the sliced drain.
