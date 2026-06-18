@@ -5,12 +5,15 @@ import WhoopStore
 struct StrainDetailView: View {
     @EnvironmentObject private var repo: Repository
     @Environment(\.dismiss) private var dismiss
+    @StateObject private var profile = ProfileStore()
     @State private var workouts: [WorkoutRow] = []
+    @State private var zoneMinutes: [Double]?
     @State private var selectedMetric: StrainMetricSelection?
+    @State private var selectedWorkout: StrainWorkoutSelection?
     @State private var notice: StrainNotice?
 
     private var snapshot: StrainDetailSnapshot {
-        StrainDetailSnapshot(today: repo.today, workouts: workouts)
+        StrainDetailSnapshot(today: repo.today, workouts: workouts, zoneMinutes: zoneMinutes)
     }
 
     var body: some View {
@@ -39,10 +42,22 @@ struct StrainDetailView: View {
         }
         .preferredColorScheme(.dark)
         .task(id: repo.refreshSeq) {
-            workouts = await repo.workoutRows(days: 7)
+            await loadWorkoutData()
         }
         .sheet(item: $selectedMetric) { metric in
             StrainMetricDetailView(title: metric.title)
+                .environmentObject(repo)
+        }
+        .sheet(item: $selectedWorkout) { selection in
+            NavigationStack {
+                WorkoutDetailView(row: selection.row)
+                    .environmentObject(repo)
+            }
+            #if os(iOS)
+            .noopSheetPresentation(largeFirst: true)
+            #else
+            .frame(minWidth: 560, minHeight: 640)
+            #endif
         }
         .alert(item: $notice) { item in
             Alert(title: Text(item.title), message: Text(item.message),
@@ -134,25 +149,33 @@ struct StrainDetailView: View {
                 }
             } else {
                 ForEach(Array(snapshot.activities.enumerated()), id: \.offset) { _, activity in
-                    StrainSurface {
-                        HStack(spacing: 12) {
-                            Image(systemName: "figure.run")
-                                .foregroundStyle(StrainTheme.orange)
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text(activity.sport.capitalized)
-                                    .font(StrandFont.headline)
+                    Button {
+                        selectedWorkout = StrainWorkoutSelection(row: activity)
+                    } label: {
+                        StrainSurface {
+                            HStack(spacing: 12) {
+                                Image(systemName: "figure.run")
+                                    .foregroundStyle(StrainTheme.orange)
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text(activity.sport.capitalized)
+                                        .font(StrandFont.headline)
+                                        .foregroundStyle(.white)
+                                    Text(Date(timeIntervalSince1970: TimeInterval(activity.startTs))
+                                        .formatted(.dateTime.hour().minute()))
+                                        .font(StrandFont.footnote)
+                                        .foregroundStyle(StrainTheme.textSecondary)
+                                }
+                                Spacer()
+                                Text(snapshot.activityDuration(activity))
+                                    .font(StrandFont.captionNumber)
                                     .foregroundStyle(.white)
-                                Text(Date(timeIntervalSince1970: TimeInterval(activity.startTs))
-                                    .formatted(.dateTime.hour().minute()))
-                                    .font(StrandFont.footnote)
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 12, weight: .semibold))
                                     .foregroundStyle(StrainTheme.textSecondary)
                             }
-                            Spacer()
-                            Text(snapshot.activityDuration(activity))
-                                .font(StrandFont.captionNumber)
-                                .foregroundStyle(.white)
                         }
                     }
+                    .buttonStyle(.plain)
                 }
             }
         }
@@ -198,11 +221,43 @@ struct StrainDetailView: View {
         }
         .ignoresSafeArea()
     }
+
+    private func loadWorkoutData() async {
+        let rows = await repo.workoutRows(days: 7)
+        let snapshot = StrainDetailSnapshot(today: repo.today, workouts: rows)
+        let minutes = await aggregateZoneMinutes(for: snapshot.activities)
+        await MainActor.run {
+            self.workouts = rows
+            self.zoneMinutes = minutes
+        }
+    }
+
+    private func aggregateZoneMinutes(for activities: [WorkoutRow]) async -> [Double]? {
+        var totals = [Double](repeating: 0, count: 5)
+        var hasZones = false
+        for activity in activities {
+            if let pct = WorkoutZones.percents(activity.zonesJSON) {
+                let durMin = (activity.durationS ?? Double(max(activity.endTs - activity.startTs, 0))) / 60.0
+                guard durMin > 0 else { continue }
+                for i in 0..<5 { totals[i] += durMin * pct[i] / 100.0 }
+                hasZones = true
+            } else if let derived = await repo.workoutZoneMinutes(from: activity.startTs, to: activity.endTs, age: profile.age) {
+                for i in 0..<min(5, derived.count) { totals[i] += derived[i] }
+                hasZones = true
+            }
+        }
+        return hasZones && totals.reduce(0, +) > 0 ? totals : nil
+    }
 }
 
 private struct StrainMetricSelection: Identifiable {
     let title: String
     var id: String { title }
+}
+
+private struct StrainWorkoutSelection: Identifiable {
+    let row: WorkoutRow
+    var id: String { "\(row.startTs)-\(row.sport)-\(row.source)" }
 }
 
 private enum StrainNotice: String, Identifiable {

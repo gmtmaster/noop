@@ -10,6 +10,7 @@ struct SleepDetailView: View {
 
     @State private var restScore: Double?
     @State private var wakeEdit: SleepDetailWakeEdit?
+    @State private var selectedMetric: SleepMetricSelection?
 
     var body: some View {
         ZStack {
@@ -21,8 +22,12 @@ struct SleepDetailView: View {
                     if let night = latestNight {
                         hero(night)
                         summary(night)
+                        if night.hasNoopRestOnlyMetrics {
+                            sourcedMetricsNote
+                        }
                         stageTimeline(night)
                         stageBreakdown(night)
+                        trends(night)
                     } else {
                         emptyState
                     }
@@ -36,6 +41,10 @@ struct SleepDetailView: View {
         .preferredColorScheme(.dark)
         .task { await loadRestScore() }
         .task(id: repo.refreshSeq) { await loadRestScore() }
+        .sheet(item: $selectedMetric) { metric in
+            SleepMetricDetailView(title: metric.title)
+                .environmentObject(repo)
+        }
         .sheet(item: $wakeEdit) { edit in
             SleepDetailTimeEditor(bedTs: edit.bedTs, wakeTs: edit.wakeTs) { newBedTs, newWakeTs in
                 await repo.editSleepTimes(
@@ -120,14 +129,24 @@ struct SleepDetailView: View {
     }
 
     private func summary(_ night: SleepDetailNight) -> some View {
-        VStack(spacing: 12) {
-            HStack(spacing: 12) {
-                SleepSummaryCard(title: "Time Asleep", value: night.timeAsleepText, systemImage: "moon.zzz.fill")
-                SleepSummaryCard(title: "Time in Bed", value: night.timeInBedText, systemImage: "bed.double.fill")
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 170), spacing: 12)], spacing: 12) {
+            SleepSummaryCard(title: "Time Asleep", value: night.timeAsleepText, systemImage: "moon.zzz.fill")
+            SleepSummaryCard(title: "Time in Bed", value: night.timeInBedText, systemImage: "bed.double.fill")
+            SleepSummaryCard(title: "Sleep Efficiency", value: night.efficiencyText, systemImage: "gauge.with.dots.needle.67percent")
+            SleepSummaryCard(title: "Sleep Window", value: night.windowText, systemImage: "alarm.fill")
+            SleepSummaryCard(title: "Bedtime", value: night.bedtimeText, systemImage: "bed.double.fill")
+            SleepSummaryCard(title: "Wake", value: night.wakeText, systemImage: "sunrise.fill")
+            if let sleepNeedText = night.sleepNeedText {
+                SleepSummaryCard(title: "Sleep Need", value: sleepNeedText, systemImage: "target")
             }
-            HStack(spacing: 12) {
-                SleepSummaryCard(title: "Sleep Efficiency", value: night.efficiencyText, systemImage: "gauge.with.dots.needle.67percent")
-                SleepSummaryCard(title: "Window", value: night.windowText, systemImage: "alarm.fill")
+            if let sleepDebtText = night.sleepDebtText {
+                SleepSummaryCard(title: "Sleep Debt", value: sleepDebtText, systemImage: "minus.circle.fill")
+            }
+            if let sleepReserveText = night.sleepReserveText {
+                SleepSummaryCard(title: "Sleep Reserve", value: sleepReserveText, systemImage: "plus.circle.fill")
+            }
+            if let consistencyText = night.consistencyText {
+                SleepSummaryCard(title: "Consistency", value: consistencyText, systemImage: "calendar.badge.clock")
             }
         }
     }
@@ -178,6 +197,39 @@ struct SleepDetailView: View {
         }
     }
 
+    private func trends(_ night: SleepDetailNight) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Trends")
+                .font(StrandFont.title2)
+                .foregroundStyle(.white)
+
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 220), spacing: 12)], spacing: 12) {
+                trend("Rest", night.restText, "%", "moon.stars.fill")
+                trend("Sleep Efficiency", night.efficiencyText, "", "gauge.with.dots.needle.67percent")
+                trend("Time Asleep", night.timeAsleepText, "", "moon.zzz.fill")
+                trend("Time in Bed", night.timeInBedText, "", "bed.double.fill")
+                if let sleepNeed = night.sleepNeedText {
+                    trend("Sleep Need", sleepNeed, "", "target")
+                }
+                if let sleepDebt = night.sleepDebtText {
+                    trend("Sleep Debt", sleepDebt, "", "minus.circle.fill")
+                }
+                if let sleepReserve = night.sleepReserveText {
+                    trend("Sleep Reserve", sleepReserve, "", "plus.circle.fill")
+                }
+                if let consistency = night.consistencyText {
+                    trend("Consistency", consistency, "", "calendar.badge.clock")
+                }
+            }
+        }
+    }
+
+    private func trend(_ title: String, _ value: String, _ unit: String, _ icon: String) -> some View {
+        SleepTrendCard(title: LocalizedStringKey(title), value: value, unit: unit, systemImage: icon) {
+            selectedMetric = SleepMetricSelection(title: title)
+        }
+    }
+
     private var emptyState: some View {
         SleepSurface {
             VStack(spacing: 12) {
@@ -222,7 +274,9 @@ struct SleepDetailView: View {
 
     private var latestNight: SleepDetailNight? {
         guard let session = latestSession else { return nil }
-        return SleepDetailNight(session: session, today: repo.today, restScore: restScore)
+        let day = Self.dayKey(for: session.endTs)
+        return SleepDetailNight(session: session, today: repo.today,
+                                figures: repo.importedSleep[day], restScore: restScore)
     }
 
     private var latestSession: CachedSleepSession? {
@@ -231,9 +285,26 @@ struct SleepDetailView: View {
     }
 
     private func loadRestScore() async {
-        let series = await repo.exploreSeries(key: "sleep_performance", source: "my-whoop")
-        let todayKey = repo.today?.day ?? Repository.localDayKey(Date())
-        restScore = Dictionary(series.map { ($0.day, $0.value) }, uniquingKeysWith: { _, last in last })[todayKey]
+        let targetDay = latestSession.map { Self.dayKey(for: $0.endTs) }
+            ?? repo.today?.day
+            ?? Repository.localDayKey(Date())
+        let restSeries = await repo.exploreSeries(key: "sleep_performance", source: "my-whoop")
+        let restByDay = Dictionary(restSeries.map { ($0.day, $0.value) }, uniquingKeysWith: { _, last in last })
+        restScore = restByDay[targetDay]
+    }
+
+    private var sourcedMetricsNote: some View {
+        SleepSurface {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Rest is computed by NOOP")
+                    .font(StrandFont.headline)
+                    .foregroundStyle(.white)
+                Text("Sleep need, debt, reserve, and consistency appear only when imported history provided them. This fork does not yet compute NOOP-native versions of those fields locally.")
+                    .font(StrandFont.subhead)
+                    .foregroundStyle(SleepTheme.textSecondary)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
     }
 
     private static func dayKey(for timestamp: Int) -> String {
@@ -251,14 +322,16 @@ struct SleepDetailView: View {
 private struct SleepDetailNight {
     let session: CachedSleepSession
     let today: DailyMetric?
+    let figures: ImportedSleepFigures?
     let restScore: Double?
     let stageMinutes: SleepStageTotals.Minutes
     let intervals: [SleepInterval]
     let hasRecordedTimeline: Bool
 
-    init(session: CachedSleepSession, today: DailyMetric?, restScore: Double?) {
+    init(session: CachedSleepSession, today: DailyMetric?, figures: ImportedSleepFigures?, restScore: Double?) {
         self.session = session
         self.today = today
+        self.figures = figures
         self.restScore = restScore
 
         let decodedMinutes = SleepStageTotals.minutes(fromStagesJSON: session.stagesJSON)
@@ -288,10 +361,7 @@ private struct SleepDetailNight {
     }
 
     var restCaption: String {
-        if let restScore {
-            return restScore >= 85 ? "Sleep performance" : "Rest score"
-        }
-        return "Calibrating"
+        restScore == nil ? "Calibrating" : "Rest"
     }
 
     var onsetDate: Date { Date(timeIntervalSince1970: TimeInterval(session.effectiveStartTs)) }
@@ -304,6 +374,22 @@ private struct SleepDetailNight {
 
     var timeAsleepText: String { durationText(timeAsleepMinutes) }
     var timeInBedText: String { durationText(timeInBedMinutes) }
+    var hasNoopRestOnlyMetrics: Bool {
+        figures?.needMin == nil && figures?.debtMin == nil && figures?.consistencyPct == nil
+    }
+
+    var sleepNeedText: String? { optionalDurationText(figures?.needMin) }
+    var sleepDebtText: String? {
+        guard let debt = figures?.debtMin, debt > 0 else { return nil }
+        return durationText(debt)
+    }
+    var sleepReserveText: String? {
+        guard let debt = figures?.debtMin, debt < 0 else { return nil }
+        return durationText(abs(debt))
+    }
+    var consistencyText: String? { percentMetricText(figures?.consistencyPct) }
+    var bedtimeText: String { timeText(session.effectiveStartTs) }
+    var wakeText: String { timeText(session.endTs) }
 
     var efficiencyPercent: Double? {
         if let stored = session.efficiency ?? today?.efficiency {
@@ -336,6 +422,15 @@ private struct SleepDetailNight {
         let rounded = max(0, Int(minutes.rounded()))
         if rounded < 60 { return "\(rounded)m" }
         return "\(rounded / 60)h \(rounded % 60)m"
+    }
+
+    private func optionalDurationText(_ minutes: Double?) -> String? {
+        guard let minutes, minutes > 0 else { return nil }
+        return durationText(minutes)
+    }
+
+    private func percentMetricText(_ value: Double?) -> String? {
+        value.map { "\(Int($0.rounded()))%" }
     }
 
     private func timeText(_ timestamp: Int) -> String {
@@ -494,6 +589,11 @@ private struct SleepDetailWakeEdit: Identifiable {
     let stagesJSON: String?
 
     var id: Int { detectedStartTs }
+}
+
+private struct SleepMetricSelection: Identifiable {
+    let title: String
+    var id: String { title }
 }
 
 private struct SleepDetailTimeEditor: View {

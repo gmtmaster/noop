@@ -10,7 +10,7 @@ struct StrainDetailSnapshot {
     let activities: [WorkoutRow]
     let date: Date
 
-    init(today: DailyMetric?, workouts: [WorkoutRow]) {
+    init(today: DailyMetric?, workouts: [WorkoutRow], zoneMinutes: [Double]? = nil) {
         strain = today?.strain.map { min(max($0, 0), 100) * 21 / 100 }
         date = today.flatMap { Self.dayFormatter.date(from: $0.day) } ?? Date()
 
@@ -26,7 +26,7 @@ struct StrainDetailSnapshot {
         let workoutEnergy = activities.compactMap(\.energyKcal)
         totalEnergy = today?.activeKcalEst ?? (workoutEnergy.isEmpty ? nil : workoutEnergy.reduce(0, +))
         steps = today?.steps
-        zoneMinutes = WorkoutZones.summary(from: activities)?.minutes
+        self.zoneMinutes = zoneMinutes ?? WorkoutZones.summary(from: activities)?.minutes
     }
 
     var strainText: String {

@@ -29,6 +29,16 @@ struct RootTabView: View {
     private var moreTab: some View {
         NavigationStack {
             List {
+                Section("Recovery") {
+                    link("Sleep", "moon.stars.fill") { SleepView() }
+                    link("Workouts", "figure.run") { WorkoutsView() }
+                    link("Health", "heart.text.square.fill") { HealthView() }
+                    link("Stress Monitor", "bolt.heart.fill") { StressView() }
+                }
+                Section("Practice") {
+                    link("Breathe", "wind") { BreathingView() }
+                    link("Intervals", "timer") { IntervalTimerView() }
+                }
                 Section("Insights") {
                     link("Intelligence", "brain.head.profile") { IntelligenceView() }
                     link("Coach", "sparkles") { CoachView() }
@@ -36,21 +46,19 @@ struct RootTabView: View {
                     link("Explore", "square.grid.2x2.fill") { MetricExplorerView() }
                     link("Compare", "rectangle.split.2x1.fill") { CompareView() }
                 }
-                Section("Body") {
-                    link("Workouts", "figure.run") { WorkoutsView() }
-                    link("Health", "heart.text.square.fill") { HealthView() }
-                    link("Stress", "bolt.heart.fill") { StressView() }
-                    link("Breathe", "wind") { BreathingView() }
-                    link("Intervals", "timer") { IntervalTimerView() }
+                Section("Utilities") {
+                    link("Devices", "badge.plus.radiowaves.right") { DevicesView() }
+                    link("Smart Alarm", "alarm.fill") { SmartAlarmView() }
+                    link("Siri & Shortcuts", "mic.fill") { SiriShortcutsSettingsView() }
                 }
                 Section("Data") {
-                    link("Apple Health", "heart.fill") { AppleHealthView() }
                     link("Data Sources", "externaldrive.fill") { DataSourcesView() }
+                    link("Apple Health", "heart.fill") { AppleHealthView() }
                     // #155: HealthKit-free Apple Health path for sideloaded installs (Siri Shortcut
                     // reads the opt-in Documents/noop_sync.txt drop file).
                     link("Shortcuts Export", "square.and.arrow.up.fill") { ShortcutExportSettingsView() }
                 }
-                Section("App") {
+                Section("Settings") {
                     link("Automations", "wand.and.stars") { AutomationsView() }
                     link("Settings", "gearshape.fill") { SettingsView() }
                     link("Support", "hands.clap.fill") { SupportView() }

@@ -34,8 +34,9 @@ struct RecoveryDetailView: View {
         .preferredColorScheme(.dark)
         .sheet(item: $selectedMetric) { metric in
             RecoveryMetricDetailView(title: metric.title)
+                .environmentObject(repo)
         }
-        .alert("Recovery Coach", isPresented: $showingCoachNotice) {
+        .alert("Charge Coach", isPresented: $showingCoachNotice) {
             Button("OK", role: .cancel) {}
         } message: {
             Text("Coach questions will be connected to the existing coach flow later.")
@@ -53,7 +54,7 @@ struct RecoveryDetailView: View {
             .buttonStyle(.plain)
             .accessibilityLabel("Back")
             Spacer()
-            Text("Recovery")
+            Text("Charge")
                 .font(StrandFont.title2)
                 .foregroundStyle(.white)
             Spacer()
@@ -65,14 +66,19 @@ struct RecoveryDetailView: View {
 
     private var hero: some View {
         VStack(spacing: 14) {
-            RecoveryHeroRing(value: snapshot.recoveryText, progress: snapshot.recoveryProgress)
-            Text(snapshot.dateLabel)
-                .font(StrandFont.captionNumber)
-                .foregroundStyle(.white)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 7)
-                .background(RecoveryTheme.surfaceRaised, in: Capsule(style: .continuous))
-                .overlay(Capsule().stroke(RecoveryTheme.border, lineWidth: 1))
+            RecoveryHeroRing(value: snapshot.chargeText, progress: snapshot.chargeProgress)
+            VStack(spacing: 6) {
+                Text(snapshot.dateLabel)
+                    .font(StrandFont.captionNumber)
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 7)
+                    .background(RecoveryTheme.surfaceRaised, in: Capsule(style: .continuous))
+                    .overlay(Capsule().stroke(RecoveryTheme.border, lineWidth: 1))
+                Text(snapshot.chargeCaption)
+                    .font(StrandFont.footnote)
+                    .foregroundStyle(RecoveryTheme.textSecondary)
+            }
         }
         .padding(.vertical, 4)
     }
@@ -98,7 +104,7 @@ struct RecoveryDetailView: View {
                 .font(StrandFont.title2)
                 .foregroundStyle(.white)
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 220), spacing: 12)], spacing: 12) {
-                trend("Recovery Score", snapshot.recoveryText, "", "gauge.with.dots.needle.67percent")
+                trend("Charge", snapshot.chargeText, "", "gauge.with.dots.needle.67percent")
                 trend("Resting HRV", snapshot.restingHrvText, "ms", "waveform")
                 trend("Resting HR", snapshot.restingHeartRateText, "bpm", "heart.fill")
                 trend("Respiratory Rate", snapshot.respiratoryRateText, "br/min", "lungs.fill")

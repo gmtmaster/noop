@@ -140,14 +140,24 @@ final class Backfiller {
 
     /// Feed one raw BLE frame into the state machine. May trigger async store operations.
     func ingest(_ frame: [UInt8]) async {
+        let typeByte: UInt8? = {
+            let index = family == .whoop5 ? 8 : 4
+            guard frame.count > index else { return nil }
+            return frame[index]
+        }()
+        let typeHex = typeByte.map { String(format: "0x%02x", $0) } ?? "--"
+        log?("Backfill: ingest called len=\(frame.count) type=\(typeHex)")
         switch classifyHistoricalMeta(parseFrame(frame, family: family)) {
         case .start:
+            log?("Backfill: HISTORY_START arrived")
             isBackfilling = true
             chunk.removeAll(keepingCapacity: true)
             chunkOpen = true
         case .end(let unix, let trim):
+            log?("Backfill: HISTORY_END arrived unix=\(unix) trim=\(trim) chunkFrames=\(chunk.count)")
             await finishChunk(unix: unix, trim: trim, endFrame: frame)
         case .complete:
+            log?("Backfill: HISTORY_COMPLETE arrived")
             isBackfilling = false
             chunk.removeAll(keepingCapacity: true)
             chunkOpen = false

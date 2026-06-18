@@ -2,30 +2,32 @@ import Foundation
 import WhoopStore
 
 struct RecoveryDetailSnapshot {
-    let recovery: Double?
+    let charge: Double?
     let restingHrv: Double?
     let restingHeartRate: Int?
     let respiratoryRate: Double?
     let oxygenSaturation: Double?
     let wristTemperature: Double?
+    let totalSleepMinutes: Double?
     let date: Date
 
     init(today: DailyMetric?) {
-        recovery = today?.recovery
+        charge = today?.recovery
         restingHrv = today?.avgHrv
         restingHeartRate = today?.restingHr
         respiratoryRate = today?.respRateBpm
         oxygenSaturation = today?.spo2Pct
         wristTemperature = today?.skinTempDevC
+        totalSleepMinutes = today?.totalSleepMin
         date = today.flatMap { Self.dayFormatter.date(from: $0.day) } ?? Date()
     }
 
-    var recoveryText: String {
-        recovery.map { "\(Int($0.rounded()))%" } ?? "0%"
+    var chargeText: String {
+        charge.map { "\(Int($0.rounded()))%" } ?? "--"
     }
 
-    var recoveryProgress: Double? {
-        recovery.map { min(max($0, 0), 100) / 100 }
+    var chargeProgress: Double? {
+        charge.map { min(max($0, 0), 100) / 100 }
     }
 
     var restingHrvText: String { whole(restingHrv) }
@@ -36,6 +38,10 @@ struct RecoveryDetailSnapshot {
         wristTemperature.map { String(format: "%+.1f", $0) } ?? "--"
     }
 
+    var chargeCaption: String {
+        charge == nil ? chargeUnavailableReason : "Readiness"
+    }
+
     var dateLabel: String {
         let prefix = Calendar.current.isDateInToday(date)
             ? "Today"
@@ -44,16 +50,33 @@ struct RecoveryDetailSnapshot {
     }
 
     var coachMessage: String {
-        guard let recovery else {
-            return "No recovery insight yet. Wear your strap overnight to build today’s recovery."
+        guard let charge else {
+            return chargeUnavailableCoachMessage
         }
-        switch recovery {
+        switch charge {
         case ..<34:
-            return "Your recovery is low. Prioritize rest and keep movement easy today."
+            return "Your Charge is low. Prioritize rest and keep movement easy today."
         case ..<67:
-            return "Your recovery is steady. A balanced training day will serve you well."
+            return "Your Charge is steady. A balanced training day will serve you well."
         default:
-            return "Your recovery is strong. Your body is ready for a productive day."
+            return "Your Charge is strong. Your body is ready for a productive day."
+        }
+    }
+
+    var chargeUnavailableReason: String {
+        if totalSleepMinutes == nil { return "Needs completed sleep" }
+        if restingHrv == nil || restingHeartRate == nil { return "Missing overnight signals" }
+        return "Building HRV baseline"
+    }
+
+    private var chargeUnavailableCoachMessage: String {
+        switch chargeUnavailableReason {
+        case "Needs completed sleep":
+            return "No Charge yet. NOOP needs a completed sleep window before it can score today."
+        case "Missing overnight signals":
+            return "No Charge yet. Overnight HRV and resting heart rate were not available for this day."
+        default:
+            return "No Charge yet. NOOP is still building your personal HRV baseline from recent nights."
         }
     }
 
@@ -73,4 +96,3 @@ struct RecoveryDetailSnapshot {
         return formatter
     }()
 }
-

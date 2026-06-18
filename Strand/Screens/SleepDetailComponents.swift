@@ -65,7 +65,7 @@ struct SleepSummaryCard: View {
                     Text(value)
                         .font(StrandFont.number(20))
                         .foregroundStyle(.white)
-                        .lineLimit(1)
+                        .lineLimit(2)
                         .minimumScaleFactor(0.7)
                 }
                 Spacer(minLength: 0)
@@ -182,6 +182,8 @@ struct SleepScheduleCard: View {
 
 struct SleepTrendCard: View {
     let title: LocalizedStringKey
+    let value: String
+    let unit: String
     let systemImage: String
     let action: () -> Void
 
@@ -197,9 +199,21 @@ struct SleepTrendCard: View {
                         Text(title)
                             .font(StrandFont.headline)
                             .foregroundStyle(.white)
-                        Text("No data")
-                            .font(StrandFont.footnote)
-                            .foregroundStyle(SleepTheme.textSecondary)
+                        HStack(alignment: .firstTextBaseline, spacing: 4) {
+                            Text(value)
+                                .font(StrandFont.captionNumber)
+                                .foregroundStyle(value == "--" ? SleepTheme.textSecondary : .white)
+                            if value != "--", !unit.isEmpty {
+                                Text(unit)
+                                    .font(StrandFont.footnote)
+                                    .foregroundStyle(SleepTheme.textSecondary)
+                            }
+                            if value == "--" {
+                                Text("No data")
+                                    .font(StrandFont.footnote)
+                                    .foregroundStyle(SleepTheme.textSecondary)
+                            }
+                        }
                     }
                     Spacer()
                     Image(systemName: "chevron.right")

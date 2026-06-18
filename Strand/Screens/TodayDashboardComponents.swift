@@ -1,5 +1,6 @@
 import SwiftUI
 import StrandDesign
+import WhoopStore
 
 struct MetricRingCard: View {
     let title: LocalizedStringKey
@@ -84,6 +85,64 @@ struct CompactInsightCard: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer(minLength: 0)
+            }
+        }
+    }
+}
+
+struct TodaySummaryStat {
+    let label: String
+    let value: String
+}
+
+struct TodaySummaryCard: View {
+    let title: String
+    let detail: String
+    let tint: Color
+    let stats: [TodaySummaryStat]
+
+    var body: some View {
+        StrandCard(padding: 14, cornerRadius: 16) {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(alignment: .center, spacing: 12) {
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(tint)
+                        .frame(width: 34, height: 34)
+                        .background(tint.opacity(0.12), in: Circle())
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("TODAY SUMMARY")
+                            .font(StrandFont.overline)
+                            .tracking(StrandFont.overlineTracking)
+                            .foregroundStyle(StrandPalette.textSecondary)
+                        Text(title)
+                            .font(StrandFont.headline)
+                            .foregroundStyle(tint)
+                        Text(detail)
+                            .font(StrandFont.subhead)
+                            .foregroundStyle(StrandPalette.textSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    Spacer(minLength: 0)
+                }
+                if !stats.isEmpty {
+                    HStack(spacing: 10) {
+                        ForEach(Array(stats.enumerated()), id: \.offset) { _, stat in
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(stat.label.uppercased())
+                                    .font(StrandFont.overline)
+                                    .tracking(StrandFont.overlineTracking)
+                                    .foregroundStyle(StrandPalette.textTertiary)
+                                Text(stat.value)
+                                    .font(StrandFont.headline)
+                                    .foregroundStyle(StrandPalette.textPrimary)
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.75)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                    }
+                }
             }
         }
     }
@@ -283,5 +342,266 @@ struct BiomarkerCard: View {
         }
         .frame(minHeight: 122)
         .accessibilityElement(children: .combine)
+    }
+}
+
+struct ActionBiomarkerCard: View {
+    let title: LocalizedStringKey
+    let value: String
+    let unit: String
+    let systemImage: String
+    var tint: Color = StrandPalette.accent
+    var detail: String? = nil
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            BiomarkerCard(
+                title: title,
+                value: value,
+                unit: unit,
+                systemImage: systemImage,
+                tint: tint,
+                detail: detail
+            )
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+struct LatestWorkoutCard: View {
+    let row: WorkoutRow
+    let workoutsForDay: Int
+
+    var body: some View {
+        StrandCard(padding: 14, cornerRadius: 16) {
+            HStack(spacing: 12) {
+                Image(systemName: symbol)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(StrandPalette.effortColor)
+                    .frame(width: 38, height: 38)
+                    .background(StrandPalette.effortColor.opacity(0.12), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 8) {
+                        Text(WorkoutSource.displaySport(row.sport))
+                            .font(StrandFont.headline)
+                            .foregroundStyle(StrandPalette.textPrimary)
+                            .lineLimit(1)
+                        if workoutsForDay > 1 {
+                            Text("\(workoutsForDay) today")
+                                .font(StrandFont.footnote)
+                                .foregroundStyle(StrandPalette.textTertiary)
+                        }
+                    }
+                    Text(timeLine)
+                        .font(StrandFont.subhead)
+                        .foregroundStyle(StrandPalette.textSecondary)
+                        .lineLimit(1)
+                    HStack(spacing: 10) {
+                        stat("Avg HR", row.avgHr.map { "\($0) bpm" } ?? "--")
+                        stat("Peak", row.maxHr.map { "\($0) bpm" } ?? "--")
+                        stat("Energy", row.energyKcal.map { "\(Int($0.rounded())) kcal" } ?? "--")
+                    }
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(StrandPalette.textTertiary)
+            }
+        }
+    }
+
+    private var symbol: String {
+        let sport = row.sport.lowercased()
+        if sport.contains("run") { return "figure.run" }
+        if sport.contains("bike") || sport.contains("cycle") { return "bicycle" }
+        if sport.contains("lift") || sport.contains("strength") { return "dumbbell.fill" }
+        if sport.contains("walk") || sport.contains("hike") { return "figure.walk" }
+        return "figure.mixed.cardio"
+    }
+
+    private var timeLine: String {
+        let start = Date(timeIntervalSince1970: TimeInterval(row.startTs))
+        let end = Date(timeIntervalSince1970: TimeInterval(row.endTs))
+        return "\(durationLabel) · \(start.formatted(.dateTime.hour().minute())) - \(end.formatted(.dateTime.hour().minute()))"
+    }
+
+    private var durationLabel: String {
+        let seconds = row.durationS ?? Double(row.endTs - row.startTs)
+        let mins = Int((seconds / 60).rounded())
+        let hours = mins / 60
+        let rem = mins % 60
+        if hours > 0 {
+            return "\(hours)h \(rem)m"
+        }
+        return "\(rem)m"
+    }
+
+    private func stat(_ label: String, _ value: String) -> some View {
+        VStack(alignment: .leading, spacing: 1) {
+            Text(label.uppercased())
+                .font(StrandFont.overline)
+                .tracking(StrandFont.overlineTracking)
+                .foregroundStyle(StrandPalette.textTertiary)
+            Text(value)
+                .font(StrandFont.footnote)
+                .foregroundStyle(StrandPalette.textPrimary)
+                .lineLimit(1)
+        }
+    }
+}
+
+struct EmptySectionCard: View {
+    let title: String
+    let detail: String
+    let systemImage: String
+    let tint: Color
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            StrandCard(padding: 16, cornerRadius: 16) {
+                HStack(spacing: 12) {
+                    Image(systemName: systemImage)
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(tint)
+                        .frame(width: 38, height: 38)
+                        .background(tint.opacity(0.12), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(title)
+                            .font(StrandFont.headline)
+                            .foregroundStyle(StrandPalette.textPrimary)
+                        Text(detail)
+                            .font(StrandFont.subhead)
+                            .foregroundStyle(StrandPalette.textSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    Spacer(minLength: 0)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(StrandPalette.textTertiary)
+                }
+            }
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+struct TodayDataSourcesCard: View {
+    let whoopDays: Int
+    let sleepCount: Int
+    let appleDays: Int
+    let batteryText: String
+    let batterySymbol: String
+    let batteryTint: Color
+    let syncValue: String
+    let syncDetail: String
+    let onOpen: () -> Void
+
+    var body: some View {
+        StrandCard(padding: 14, cornerRadius: 16) {
+            VStack(alignment: .leading, spacing: 12) {
+                sourceRow(
+                    title: "WHOOP history",
+                    value: whoopDays > 0 ? "\(whoopDays) days · \(sleepCount) sleeps" : "No history yet",
+                    systemImage: "waveform.path.ecg",
+                    tint: StrandPalette.accent
+                )
+                sourceRow(
+                    title: "Apple Health",
+                    value: appleDays > 0 ? "\(appleDays) days connected" : "Not connected",
+                    systemImage: "heart.fill",
+                    tint: StrandPalette.metricCyan
+                )
+                HStack(spacing: 10) {
+                    sourceChip(title: "Battery", value: batteryText == "--" ? "--" : "\(batteryText)%", systemImage: batterySymbol, tint: batteryTint)
+                    sourceChip(title: "Sync", value: syncValue, systemImage: "arrow.triangle.2.circlepath", tint: StrandPalette.accent)
+                }
+                Text(syncDetail)
+                    .font(StrandFont.footnote)
+                    .foregroundStyle(StrandPalette.textTertiary)
+                Button(action: onOpen) {
+                    Label("Open Data Sources", systemImage: "externaldrive.fill")
+                        .font(StrandFont.subhead)
+                        .foregroundStyle(StrandPalette.accent)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    private func sourceRow(title: String, value: String, systemImage: String, tint: Color) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: systemImage)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(tint)
+                .frame(width: 28, height: 28)
+                .background(tint.opacity(0.12), in: Circle())
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(StrandFont.subhead)
+                    .foregroundStyle(StrandPalette.textPrimary)
+                Text(value)
+                    .font(StrandFont.footnote)
+                    .foregroundStyle(StrandPalette.textSecondary)
+            }
+            Spacer(minLength: 0)
+        }
+    }
+
+    private func sourceChip(title: String, value: String, systemImage: String, tint: Color) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: systemImage)
+                .foregroundStyle(tint)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(title.uppercased())
+                    .font(StrandFont.overline)
+                    .tracking(StrandFont.overlineTracking)
+                    .foregroundStyle(StrandPalette.textTertiary)
+                Text(value)
+                    .font(StrandFont.footnote)
+                    .foregroundStyle(StrandPalette.textPrimary)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(StrandPalette.surfaceRaised.opacity(0.55), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+}
+
+struct TodayShortcutCard: View {
+    let title: LocalizedStringKey
+    let detail: LocalizedStringKey
+    let systemImage: String
+    let tint: Color
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            StrandCard(padding: 14, cornerRadius: 16) {
+                HStack(spacing: 12) {
+                    Image(systemName: systemImage)
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(tint)
+                        .frame(width: 34, height: 34)
+                        .background(tint.opacity(0.12), in: Circle())
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(title)
+                            .font(StrandFont.headline)
+                            .foregroundStyle(StrandPalette.textPrimary)
+                        Text(detail)
+                            .font(StrandFont.footnote)
+                            .foregroundStyle(StrandPalette.textSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    Spacer(minLength: 0)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(StrandPalette.textTertiary)
+                }
+            }
+        }
+        .buttonStyle(.plain)
     }
 }

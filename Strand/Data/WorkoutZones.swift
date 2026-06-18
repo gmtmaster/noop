@@ -45,4 +45,17 @@ enum WorkoutZones {
         guard n > 0, mins.reduce(0, +) > 0 else { return nil }
         return Summary(minutes: mins, sessionsWithZones: n)
     }
+
+    static func percentsJSON(from minutes: [Double]) -> String? {
+        guard minutes.count == 5 else { return nil }
+        let total = minutes.reduce(0, +)
+        guard total > 0 else { return nil }
+        let obj = Dictionary(uniqueKeysWithValues: (1...5).map { i in
+            ("z\(i)", minutes[i - 1] / total * 100.0)
+        })
+        guard let data = try? JSONSerialization.data(withJSONObject: obj, options: [.sortedKeys]) else {
+            return nil
+        }
+        return String(data: data, encoding: .utf8)
+    }
 }

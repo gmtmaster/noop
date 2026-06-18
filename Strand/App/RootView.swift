@@ -18,8 +18,10 @@ enum NavItem: String, CaseIterable, Identifiable, Hashable {
     case stress = "Stress"
     case appleHealth = "Apple Health"
     case dataSources = "Data Sources"
+    case devices = "Devices"
     case notifications = "Notifications"
     case automation = "Automations"
+    case smartAlarm = "Smart Alarm"
     case settings = "Settings"
     case support = "Support"
 
@@ -45,8 +47,10 @@ enum NavItem: String, CaseIterable, Identifiable, Hashable {
         case .stress: return "Stress"
         case .appleHealth: return "Apple Health"
         case .dataSources: return "Data Sources"
+        case .devices: return "Devices"
         case .notifications: return "Notifications"
         case .automation: return "Automations"
+        case .smartAlarm: return "Smart Alarm"
         case .settings: return "Settings"
         case .support: return "Support"
         }
@@ -70,8 +74,10 @@ enum NavItem: String, CaseIterable, Identifiable, Hashable {
         case .stress: return "gauge.with.dots.needle.50percent"
         case .appleHealth: return "heart.fill"
         case .dataSources: return "square.and.arrow.down.fill"
+        case .devices: return "badge.plus.radiowaves.right"
         case .notifications: return "bell.badge.fill"
         case .automation: return "wand.and.stars"
+        case .smartAlarm: return "alarm.fill"
         case .settings: return "gearshape.fill"
         case .support: return "heart.fill"
         }
@@ -136,8 +142,10 @@ struct RootView: View {
         case .stress: StressView()
         case .appleHealth: AppleHealthView()
         case .dataSources: DataSourcesView()
+        case .devices: DevicesView()
         case .notifications: NotificationSettingsView()
         case .automation: AutomationsView()
+        case .smartAlarm: SmartAlarmView()
         case .settings: SettingsView()
         case .support: SupportView()
         }

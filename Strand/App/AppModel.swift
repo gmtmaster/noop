@@ -336,11 +336,14 @@ final class AppModel: ObservableObject {
         let up = UserProfile(weightKg: profile.weightKg, heightCm: profile.heightCm,
                              age: Double(profile.age), sex: profile.sex)
         let kcal = Calories.estimateBoutCalories(samples, profile: up, hrmax: Double(profile.hrMax), restingHR: nil).0
+        let zoneSet = HRZones.zones(age: profile.age > 0 ? Double(profile.age) : 30)
+        let zoneMinutes = HRZones.timeInZone(samples, zoneSet: zoneSet).seconds.map { $0 / 60.0 }
+        let zonesJSON = WorkoutZones.percentsJSON(from: zoneMinutes)
         let row = WorkoutRow(
             startTs: Int(w.start.timeIntervalSince1970), endTs: Int(end.timeIntervalSince1970),
             sport: "Workout", source: "manual", durationS: end.timeIntervalSince(w.start),
             energyKcal: kcal > 0 ? kcal : nil, avgHr: avg, maxHr: peak, strain: strain,
-            distanceM: nil, zonesJSON: nil, notes: nil)
+            distanceM: nil, zonesJSON: zonesJSON, notes: nil)
         lastWorkout = row
         buzz(loops: 2)
         Task { [weak self] in

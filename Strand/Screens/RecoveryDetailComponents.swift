@@ -35,7 +35,7 @@ struct RecoveryHeroRing: View {
                 Text(value)
                     .font(StrandFont.number(44))
                     .foregroundStyle(.white)
-                Text("Recovery")
+                Text("Charge")
                     .font(StrandFont.subhead)
                     .foregroundStyle(RecoveryTheme.textSecondary)
             }
