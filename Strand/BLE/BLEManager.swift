@@ -280,9 +280,11 @@ public final class BLEManager: NSObject, ObservableObject {
     static let backfillLastAtKey = "backfillLastAt"
     /// Prevents a second backfill from starting on a same-process reconnect to the same strap.
     private var backfillStarted = false
-    /// #364 auto-continue: how many times we've immediately re-kicked a backfill after a 60s idle-cap
-    /// exit on THIS connection. Bounded by BackfillContinuation.maxAutoContinues so a pathological strap
-    /// can't pin the radio. Reset to 0 on a real HISTORY_COMPLETE (we're caught up) and on disconnect.
+    /// #364 auto-continue: how many times we've immediately re-kicked a backfill after a 60s idle-cap OR
+    /// HISTORY_COMPLETE exit on THIS connection. Bounded by BackfillContinuation.maxAutoContinues so a
+    /// pathological strap can't pin the radio. Reset to 0 once shouldAutoContinue proves we're caught up
+    /// (its else path, under the cap) and on disconnect — NOT unconditionally on every HISTORY_COMPLETE,
+    /// so a strap that slices one offload into many completions can't reset the cap each slice.
     private var consecutiveAutoContinues = 0
     /// #364 spin-detector: the trim cursor as of the END of the previous backfill session this
     /// connection. exitBackfilling compares the current Backfiller.lastAckedTrim against this to decide
@@ -1066,31 +1068,22 @@ public final class BLEManager: NSObject, ObservableObject {
                 state.lastSyncError = nil
             }
             UserDefaults.standard.set(state.lastSyncedAt, forKey: "lastSyncedAt")
-            // We ran the offload to true completion ⇒ caught up. Clear the auto-continue streak so the
-            // NEXT deep backlog (e.g. after the app's been off again) gets a fresh budget of re-kicks.
-            consecutiveAutoContinues = 0
+            // NOTE: do not reset the auto-continue streak here. Some straps segment a deep backlog into
+            // many small HISTORY_COMPLETE slices; resetting on every slice defeats the per-connection cap.
         } else if reason == "timeout" {
             state.lastSyncError = "Sync interrupted — the strap went quiet. It will retry on the next sync."
         }
         checkStrapLiveness()         // safety-net: strap ahead of us AND our frontier frozen ⇒ stuck?
-        // #364: a session that ended on the 60s IDLE cap (NOT a real HISTORY_COMPLETE) while still
-        // connected, with more backlog to fetch and the trim still advancing, immediately re-kicks
-        // another offload instead of tearing down to wait the 15-min floor — so a deep oldest-first
-        // backlog drains in back-to-back ~60s passes rather than one-per-15-min. Bounded by the
-        // consecutive-cap and the spin-detector inside the pure predicate.
-        if reason == "timeout" {
+        // Auto-continue after idle-cap OR sliced HISTORY_COMPLETE so deep backlogs drain back-to-back
+        // instead of stalling between slices.
+        if reason == "timeout" || reason == "HISTORY_COMPLETE" {
             maybeAutoContinueBackfill(trimAdvanced: trimAdvanced,
                                       rowsPersisted: backfiller?.sessionRowsPersisted ?? 0)
         }
     }
 
-    /// #364: evaluate (and, if warranted, fire) an immediate back-to-back backfill after a 60s idle-cap
-    /// exit. The "more backlog remains" test needs our persisted data frontier (max HR ts), which only
-    /// the Collector can read, so this hops onto a Task exactly like `checkStrapLiveness`. The decision
-    /// itself is the pure `BackfillContinuation.shouldAutoContinue` so it stays unit-testable; this
-    /// method only gathers the inputs, bumps the counter, and re-kicks via the SAME gated requestSync
-    /// path (so it still respects connected/bonded and can't double-start). The `.autoContinue` trigger ⇒
-    /// the BackfillPolicy 15-min floor is bypassed for this expedited continuation (the cap is the guard).
+    /// Evaluate (and, if warranted, fire) an immediate back-to-back backfill after an idle-cap exit OR
+    /// a sliced HISTORY_COMPLETE. The decision itself is the pure `BackfillContinuation.shouldAutoContinue`.
     /// `trimAdvanced` is the spin-detector signal computed in exitBackfilling (did this session move the
     /// trim cursor vs the previous one) — passed in because exitBackfilling has already advanced
     /// `lastSessionEndTrim` past the comparison point by the time this Task runs.
@@ -1108,7 +1101,12 @@ public final class BLEManager: NSObject, ObservableObject {
                 ourFrontierTs: frontier,
                 rowsPersistedThisSession: rowsPersisted,
                 lastTrimAdvanced: trimAdvanced,
-                consecutiveCount: count) else { return }
+                consecutiveCount: count) else {
+                if count < BackfillContinuation.defaultMaxAutoContinues {
+                    consecutiveAutoContinues = 0
+                }
+                return
+            }
             // Guard against a race: a real backfill may already have re-started (periodic/connect) in the
             // gap before this Task ran. requestSync's own gate (!backfilling) handles that, but skip the
             // log/counter churn if so.

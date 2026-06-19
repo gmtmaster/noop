@@ -18,6 +18,9 @@ final class PuffinFrameRecorder {
     /// Flush to disk every this-many frames so a crash/yank loses at most a handful of frames.
     private static let flushEvery = 25
 
+    /// Soft cap on the total size of the puffin-captures directory.
+    private static let directorySoftCapBytes = 50 * 1024 * 1024
+
     private weak var state: LiveState?
     private let buffer = PuffinCapture()
     private var sinceFlush = 0
@@ -60,8 +63,32 @@ final class PuffinFrameRecorder {
             try data.write(to: url, options: .atomic)
             sinceFlush = 0
             state?.puffinCaptureURL = url
+            Self.evictOldCaptures(keeping: url)
         } catch {
             // Best-effort: a failed flush just means the next one rewrites the whole file.
+        }
+    }
+
+    private static func evictOldCaptures(keeping keep: URL) {
+        let fm = FileManager.default
+        guard let dir = try? captureDirectory() else { return }
+        guard let entries = try? fm.contentsOfDirectory(
+            at: dir, includingPropertiesForKeys: [.fileSizeKey],
+            options: [.skipsHiddenFiles]) else { return }
+        let files = entries
+            .filter { $0.pathExtension == "json" }
+            .map { (url: $0, size: (try? $0.resourceValues(forKeys: [.fileSizeKey]))?.fileSize ?? 0) }
+            .sorted { $0.url.lastPathComponent < $1.url.lastPathComponent }
+        var total = files.reduce(0) { $0 + $1.size }
+        for file in files {
+            guard total > directorySoftCapBytes else { break }
+            if file.url == keep { continue }
+            do {
+                try fm.removeItem(at: file.url)
+                total -= file.size
+            } catch {
+                // Best-effort: skip a file we couldn't remove; the next flush retries.
+            }
         }
     }
 

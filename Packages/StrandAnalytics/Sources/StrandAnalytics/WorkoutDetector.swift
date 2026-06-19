@@ -364,6 +364,7 @@ public enum Calories {
                                   workoutAge: 0.13785, workoutAlpha: -37.74955)
 
     static let activeHRRFraction = 0.30
+    static let dayActiveHRRFraction = 0.50
     static let workoutDivisor = 251.04  // 60 s/min × 4.184 kJ/kcal
 
     static func resolveCoeffs(_ sex: String) -> Coeffs {
@@ -407,7 +408,7 @@ public enum Calories {
 
         let effHRmax = hrmax ?? 220.0
         let effResting = restingHR ?? 60.0
-        let activeThreshold = effResting + activeHRRFraction * (effHRmax - effResting)
+        let activeThreshold = effResting + dayActiveHRRFraction * (effHRmax - effResting)
 
         let restingRate = restingKcalPerS(coeffs, weightKg: weightKg, heightCm: heightCm, age: age)
 
@@ -473,7 +474,8 @@ public enum Calories {
             if bpm < activeThreshold {
                 totalKcal += restingRate
             } else {
-                totalKcal += activeKcalPerS(coeffs, hr: bpm, hrmax: effHRmax, weightKg: weightKg, age: age)
+                let active = activeKcalPerS(coeffs, hr: bpm, hrmax: effHRmax, weightKg: weightKg, age: age)
+                totalKcal += max(restingRate, active)
             }
         }
         return totalKcal

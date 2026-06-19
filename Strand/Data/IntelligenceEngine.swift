@@ -176,11 +176,10 @@ final class IntelligenceEngine: ObservableObject {
             let grav = (try? await store.gravitySamples(deviceId: owner, from: from, to: to, limit: 200_000)) ?? []
             let steps = (try? await store.stepSamples(deviceId: owner, from: from, to: to, limit: 200_000)) ?? []
             let skin = (try? await store.skinTempSamples(deviceId: owner, from: from, to: to, limit: 200_000)) ?? []
-            // WRIST_OFF events in the night window for the off-wrist sleep backstop (#500). The HR-gap
-            // proxy in the stager is the primary guard; these explicit events are a bonus drop of any
-            // run that overlaps one. kind is the strap event label, e.g. "WRIST_OFF(10)".
-            let wristOff = ((try? await store.events(deviceId: owner, from: from, to: to, limit: 50_000)) ?? [])
-                .filter { $0.kind.hasPrefix("WRIST_OFF") }.map { $0.ts }
+            // Pair wrist-wear events into off-wrist intervals so the sleep stager can apply the
+            // fractional off-wrist guard without dropping a real night over one short tail event.
+            let wristEvents = (try? await store.events(deviceId: owner, from: from, to: to, limit: 50_000)) ?? []
+            let wristOff = AnalyticsEngine.offWristIntervals(events: wristEvents, windowEnd: to)
 
             // Calendar-day window for the ADDITIVE daily totals (steps + calories). The night window
             // above is anchored to the current time-of-day and ends at dayStart+12h, so for a PAST

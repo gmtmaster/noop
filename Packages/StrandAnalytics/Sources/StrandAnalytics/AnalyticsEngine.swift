@@ -14,6 +14,29 @@ import WhoopProtocol
 
 public enum AnalyticsEngine {
 
+    /// Pair the strap's WRIST_OFF/WRIST_ON events into off-wrist `[start, end)` intervals for the sleep
+    /// detector's fractional wear filter (#500; design credited to j0b-dev's #504). Each WRIST_OFF opens
+    /// an interval that closes at the next WRIST_ON, or at `windowEnd` if the strap is still off at the
+    /// end of the read window. Events need not be pre-sorted; kinds are formatted "NAME(n)" (e.g.
+    /// "WRIST_OFF(10)"), matched by prefix. Repeated OFFs/ONs without a partner are coalesced.
+    public static func offWristIntervals(events: [WhoopEvent], windowEnd: Int) -> [(start: Int, end: Int)] {
+        let wear = events
+            .filter { $0.kind.hasPrefix("WRIST_OFF") || $0.kind.hasPrefix("WRIST_ON") }
+            .sorted { $0.ts < $1.ts }
+        var intervals: [(start: Int, end: Int)] = []
+        var offStart: Int? = nil
+        for e in wear {
+            if e.kind.hasPrefix("WRIST_OFF") {
+                if offStart == nil { offStart = e.ts }
+            } else {
+                if let s = offStart, e.ts > s { intervals.append((start: s, end: e.ts)) }
+                offStart = nil
+            }
+        }
+        if let s = offStart, windowEnd > s { intervals.append((start: s, end: windowEnd)) }
+        return intervals
+    }
+
     /// Baselines passed in by the caller (built from prior nights via Baselines).
     public struct ProfileBaselines: Sendable {
         public let hrv: BaselineState?
@@ -172,12 +195,14 @@ public enum AnalyticsEngine {
                                   // false-sleep guard (#90). Default 0 keeps pure-function callers/tests
                                   // on UTC; IntelligenceEngine passes the device's real offset.
                                   tzOffsetSeconds: Int = 0,
-                                  // WRIST_OFF event timestamps (unix seconds) for the off-wrist sleep
-                                  // backstop (#500). The HR-gap proxy in detectSleep is the primary
-                                  // guard; these explicit events are a bonus drop. Default empty keeps
-                                  // pure-function callers/tests event-free; IntelligenceEngine passes
-                                  // the night window's WRIST_OFF events.
-                                  wristOff: [Int] = [],
+                                  // Off-wrist `[start, end)` intervals (unix seconds) for the off-wrist
+                                  // sleep backstop (#500), paired from WRIST_OFF/WRIST_ON events by
+                                  // `offWristIntervals`. The HR-gap proxy in detectSleep is the always-on
+                                  // guard; these explicit intervals sharpen it under the FRACTIONAL rule
+                                  // (#504) — a session is dropped only when its off-wrist coverage reaches
+                                  // maxOffWristSleepFraction. Default empty keeps pure-function callers/
+                                  // tests event-free; IntelligenceEngine passes the night window's intervals.
+                                  wristOff: [(start: Int, end: Int)] = [],
                                   // Rest composite (Charge/Effort/Rest) personalization. Both default to
                                   // their neutral form so pure-function callers/tests get a well-defined
                                   // Rest from a single night; IntelligenceEngine refines them from history.
@@ -308,27 +333,28 @@ public enum AnalyticsEngine {
             profile: profile)
 
         // ── Steps (APPROXIMATE) ───────────────────────────────────────────────
-        // step_motion_counter@57 is a CUMULATIVE u16 running counter. The daily total is the SUM of
-        // positive consecutive deltas across the day's samples. u16 wraparound: a negative delta
-        // means the counter rolled past 65535, so add 65536. The day's read window may include
-        // adjacent-day samples, so filter to the LOCAL-day key dayString(ts, tzOffset)==day first
-        // (#277). ESTIMATE only — not cloud/clinical parity.
+        // step_motion_counter@57 is a CUMULATIVE u16 running counter (it climbs while you move, holds
+        // flat when still, and wraps at 65536). The daily total is the SUM of WRAP-AWARE increments of
+        // that counter across the time-ordered 1 Hz records: delta = (cur - prev) & 0xFFFF. The first
+        // record has no predecessor (contributes 0). The day's read window may include adjacent-day
+        // samples, so filter to the LOCAL-day key dayString(ts, tzOffset)==day first (#277).
+        //
+        // Reading byte @57 ALONE and summing it (the old bug, #132/#276/#316) both ignored the high byte
+        // and summed a running total. Decoding the full u16 and summing wrap-aware DELTAS yields sane
+        // day totals. ESTIMATE only — not cloud/clinical parity.
         let stepsTotal: Int? = {
             // Prefer the full-calendar-day stream for the additive total; fall back to the
             // night-window stream when the caller didn't supply one (pure-function callers/tests).
             let sorted = (daySteps ?? steps).filter { dayString($0.ts, offsetSec: tzOffsetSeconds) == day }.sorted { $0.ts < $1.ts }
             if sorted.count < 2 { return nil }
-            // A firmware reboot resets the counter and is byte-indistinguishable from a u16 wrap.
-            // A genuine wrap yields a SMALL corrected delta (the steps since the last record); a
-            // reset-from-low yields a huge one. Cap each corrected delta so a reboot can't inject
-            // tens of thousands of phantom steps. Heuristic — partial, since a reset from a HIGH
-            // prior count still looks like a small wrap; tune once @57's cadence is validated.
-            let maxStepDelta = 30_000
+            // A delta this large is a big time-gap / disconnect boundary between sync sessions (or a
+            // firmware reboot, byte-indistinguishable from a wrap), NOT real steps — drop it so gaps
+            // don't inflate the total. Real 1 Hz motion never ticks this fast between adjacent records.
+            let maxStepDelta = 512
             var total = 0
             for i in 1..<sorted.count {
-                var delta = sorted[i].counter - sorted[i - 1].counter
-                if delta < 0 { delta += 65_536 }  // u16 wraparound
-                if delta >= 1 && delta <= maxStepDelta { total += delta }  // drop resets
+                let delta = (sorted[i].counter - sorted[i - 1].counter) & 0xFFFF
+                if delta >= 1 && delta < maxStepDelta { total += delta }
             }
             if total <= 0 { return nil }
             // @57 counts motion ticks, not validated steps — the 5/MG counter overcounts. Divide
